@@ -1,0 +1,168 @@
+---
+title: "NEON_MAOM_Clean"
+author: "Ashley"
+date: "2/4/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(cowplot)
+library(ggmap)
+library(maps)
+library(mapdata)
+library(nlme) #lme
+library(neonUtilities)
+library(sjPlot)
+library(dotwhisker)
+library(lme4) #lmer
+library(car)
+library(ggpubr)
+library(ggrepel)
+library(ggeffects)
+library(WorldFlora)
+
+#Name NEON Sites used
+forests=c("BART","DELA","HARV","ORNL","TREE","LENO", "SERC")
+
+#MAT, MAP of sites
+site_clim=read.csv("NEON_Field_Site_Metadata_20201204.csv") %>% 
+  select(field_site_id, field_mean_annual_temperature_C, field_mean_annual_precipitation_mm, field_domint_plant_species) %>% 
+  rename(Site=field_site_id) %>%
+  filter(Site %in% forests)
+
+#Climate decomposition index of sites
+CDI=read.csv("CDI.csv")
+
+#Pulling in fractions C and N analysis
+CN_data=read.csv("SOM_Fractions_CN.csv") %>% 
+  separate(Sample.ID, into=c("Site", "Plot", "fraction")) %>% 
+  mutate(Site = str_replace(Site, "ORLN", "ORNL")) %>% 
+  unite(col="Sample.ID",c(Site, Plot), sep="_") %>% 
+  filter(Sample.ID != "STANDARD_FILTER") %>% 
+  select(-Count)
+
+#Vector of plot IDs
+plots=unique(CN_data$Sample.ID)
+
+#Read in Heavy fraction info (diff. calculation from other fractions b/c no filter)
+HF_mass=read.csv("SOM_Fractions_Lab_Notebook.csv") %>% 
+   select(Sample.ID, HF.mass..mg., mg.total.soil..aim.5000.) 
+
+#Heavy fraction chemistry
+HF_CN=read.csv("SOM_Fractions_CN.csv") %>% 
+  separate(Sample.ID, into=c("Site", "Plot", "fraction")) %>% 
+  mutate(Site = str_replace(Site, "ORLN", "ORNL")) %>% 
+  filter(Site != "STANDARD",
+          fraction == "HF") %>% 
+   select(-Count) %>% 
+  unite(col="Sample.ID",c(Site, Plot), sep="_") %>% 
+  rename(pct.C.soil=pct.C, pct.N.soil=pct.N) %>% 
+  left_join(HF_mass) %>% 
+  mutate(mg.MAOM.C.per.sample=((pct.C.soil/100)*HF.mass..mg.)) %>% 
+  mutate(mg.MAOM.C.per.g.soil=mg.MAOM.C.per.sample/(mg.total.soil..aim.5000./1000))
+
+total.fractions.mass=read.csv("SOM_Fractions_Lab_Notebook.csv") %>% 
+  select(Sample.ID, Total.fractions.mass)
+  
+total.C=read.csv("SOM_Fractions_Lab_Notebook.csv") %>% 
+  select(Sample.ID, FLF.filter.air.dry.mass..mg., oLF.filter.air.dry.mass..mg., fLF.mass..mg., oLF.mass..mg.) %>% 
+  rename(FLF.filter=FLF.filter.air.dry.mass..mg.,OLF.filter=oLF.filter.air.dry.mass..mg., FLF.soil=fLF.mass..mg., 
+         OLF.soil=oLF.mass..mg. ) %>% 
+  pivot_longer(!Sample.ID, names_to="component", values_to="mass") %>% 
+  separate(component, into=c("fraction", "component")) %>% 
+  pivot_wider(names_from=component, values_from=mass) %>% 
+  mutate(prop.soil=(soil/(soil+filter))) %>% 
+  left_join(CN_data, by=c("Sample.ID", "fraction")) %>%
+  select(-C.N) %>% 
+  mutate(mg.C.tin=((pct.C/100)*Sample.mass),
+         mg.N.tin=((pct.N/100)*Sample.mass),
+         mg.soil.tin=(prop.soil*Sample.mass)) %>% 
+  mutate(pct.C.soil=(mg.C.tin/mg.soil.tin)*100,
+         pct.N.soil=(mg.N.tin/mg.soil.tin)*100,
+         C.N=pct.C.soil/pct.N.soil) %>% 
+  mutate_if(is.numeric, list(~na_if(., Inf))) %>% 
+  select(Sample.ID, fraction, pct.N.soil, pct.C.soil, C.N, Sample.mass, soil) %>% 
+  rbind(HF_CN) %>% 
+  rename(fraction.mass=soil) %>% 
+  select(Sample.ID, fraction.mass, pct.N.soil, pct.C.soil, fraction) %>% 
+  pivot_wider(names_from=fraction, values_from=c(pct.N.soil, pct.C.soil, fraction.mass)) %>% 
+  mutate(mg.FLF=pct.C.soil_FLF*fraction.mass_FLF,
+         mg.OLF=pct.C.soil_OLF*fraction.mass_OLF,
+         mg.HF=pct.C.soil_HF*fraction.mass_HF) %>% 
+  mutate(Total.C=mg.FLF+ mg.OLF+ mg.HF) %>% 
+  select(Sample.ID, Total.C)
+
+soil_CN=read.csv("SOM_Fractions_Lab_Notebook.csv") %>% 
+  select(Sample.ID, FLF.filter.air.dry.mass..mg., oLF.filter.air.dry.mass..mg., fLF.mass..mg., oLF.mass..mg.) %>% 
+  rename(FLF.filter=FLF.filter.air.dry.mass..mg.,OLF.filter=oLF.filter.air.dry.mass..mg., FLF.soil=fLF.mass..mg., 
+         OLF.soil=oLF.mass..mg. ) %>% 
+  pivot_longer(!Sample.ID, names_to="component", values_to="mass") %>% 
+  separate(component, into=c("fraction", "component")) %>% 
+  pivot_wider(names_from=component, values_from=mass) %>% 
+  mutate(prop.soil=(soil/(soil+filter))) %>% 
+  left_join(CN_data, by=c("Sample.ID", "fraction")) %>%
+  select(-C.N) %>% 
+  mutate(mg.C.tin=((pct.C/100)*Sample.mass),
+         mg.N.tin=((pct.N/100)*Sample.mass),
+         mg.soil.tin=(prop.soil*Sample.mass)) %>% 
+  mutate(pct.C.soil=(mg.C.tin/mg.soil.tin)*100,
+         pct.N.soil=(mg.N.tin/mg.soil.tin)*100,
+         C.N=pct.C.soil/pct.N.soil) %>% 
+  mutate_if(is.numeric, list(~na_if(., Inf))) %>% 
+  select(Sample.ID, fraction, pct.N.soil, pct.C.soil, C.N, Sample.mass, soil) %>% 
+  rbind(HF_CN) %>% 
+  rename(fraction.mass=soil) %>% 
+  left_join(total.fractions.mass, by="Sample.ID") %>% 
+  left_join(total.C, by="Sample.ID") %>% 
+  separate(Sample.ID, into=c("Site", "Plot")) %>% 
+  mutate(mg.C=pct.C.soil*fraction.mass, 
+        mg.N=pct.N.soil*fraction.mass) %>% 
+    mutate(mg.C.per.g.soil= mg.C/(Total.fractions.mass/1000),
+         mg.N.per.g.soil= mg.N/(Total.fractions.mass/1000),
+         proportion.C= mg.C/Total.C,
+         proportion.N= mg.N/Total.C) %>% 
+  left_join(site_clim, by="Site") %>% 
+  left_join(CDI, by="Site") %>% 
+  unite(col="plotID",c(Site, Plot), sep="_", remove=F) %>% 
+  filter(plotID != "DELA_037") 
+  
+  
+soil_CN$fraction=factor(soil_CN$fraction, levels=c("FLF", "OLF", "HF"))
+
+
+
+
+```
+
+
+
+```{r MAOMplots, echo=F, message=F}
+
+#proportion C in MAOM by myc:
+ggplot(full_data_with_fractions[which(full_data_with_fractions$proportion.C_HF>0.5),], aes(x=E, y=proportion.C_HF, colour=Site.x))+
+   geom_smooth(method="lm",size=2, se=F)+
+   geom_point(size=3, alpha=0.5)+
+    #geom_text(x=7.3, y=0.8, label="*", size=10, colour="black")+
+  #scale_colour_manual(values=pretty_pal2)+
+  labs(x=" % ECM dominance ", y="MAOM C (proportion)", colour="Site")+
+  theme_cowplot()+
+  #  xlim(3,7.4)+
+  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
+
+#Concentration MAOM C by myc:
+ggplot(full_data_with_fractions[which(full_data_with_fractions$mg.C.per.g.soil_HF>0.5),], aes(x=E, y=mg.C.per.g.soil_HF, colour=Site.x))+
+   geom_smooth(method="lm",size=2, se=F)+
+   geom_point(size=3, alpha=0.5)+
+  labs(x=" % ECM dominance ", y="MAOM C (concentration)", colour="Site")+
+  theme_cowplot()+
+  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
+```
+
+
+
+```{r etc, echo=FALSE, message=F}
+
+```
+
+
