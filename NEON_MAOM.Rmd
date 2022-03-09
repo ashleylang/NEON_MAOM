@@ -338,7 +338,7 @@ clay_summary=particle_size %>%
   select(site, sitemeanclay, sitesdclay) %>% 
   distinct() %>% 
   left_join(site_clim, by=c("site"="Site")) %>% 
-    left_join(CDI, by=c("site"="Site")) 
+    left_join(CDI, by=c("site"="Site"))
 
 
 
@@ -482,24 +482,18 @@ soil_fractions=c("#5C4E19", "#9F8A3B", "#DDD1A3")
 
 
 ```
-## Question: *What controls both large-scale and small-scale patterns in MAOM content and stability in forest soil?*
+## Question: *What controls patterns in MAOM content in forest soil?*
 
 ## Expectations:
 ### 1. Climate and soil characteristics will explain most of the patterns in MAOM content and stability, and these controls vary by site and over large spatial scales. 
 #### - Warmer sites and sites with more clay and iron oxides will have greater concentrations of MAOM. 
 #### - MAOM turnover will be more strongly controlled by mineralogy, with more clay-rich and iron-rich sites having the oldest and most stable MAOM.
 
-![H1](images/H1.png)
-
 #### *Counterpoint: Warmer sites should also have smaller standing nutrient pools, which may lead to more root exudation from trees, or mining by associated fungi, as a way to liberate nutrients from MAOM. This may result in smaller, more dynamic MAOM stocks with relatively short turnover times.*
-
-
 
 ### 2. Within-site patterns in tree mycorrhizal association will explain a smaller but still important amount of variation in MAOM content and turnover time.
 #### - ECM-dominated plots will have less MAOM than AM-dominated plots
-#### - ECM-dominated plots will have shorter MAOM turnover times than AM-dominated plots
-
-![H2](images/H2.png)
+#### - ECM-dominated plots will have shorter MAOM turnover times than AM-dominated plots (because ECM taxa may be able to liberate mineral-bound SOM)
 
 
 ## Introduction
@@ -604,6 +598,10 @@ ggplot(soil_CN, aes(x=field_mean_annual_temperature_C, y=proportion.C, colour=fr
   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
 ggsave("maom.mat.jpg", path="figures/", width= 14, height= 12, units="cm")
+
+ggplot(final_data, aes(x=CDI, y=plotBA))+
+#   geom_smooth(method="lm",size=2, se=F)+
+   geom_point(size=3, alpha=0.5)
 
 ```
 
@@ -735,36 +733,36 @@ ggplot(final_data, aes(x=Site, y=proportion.C_HF))+
 
 
 
-```{r HF_models, echo=F, message=F, warning=F, fig.width=11, fig.height=9}
+```{r HF_models, echo=F, message=F, warning=F,fig.width=11, fig.height=9}
 
 #Need to make a color scale going from red to blue for MAT, label legend with Site names
 cdi_colors=c("dodgerblue4", "dodgerblue1", "skyblue", "gray77", "rosybrown1", "tomato", "tomato3")
 
-propC.myc=ggplot(final_data, aes(x=E*100, y=proportion.C_HF, color=factor(CDI)))+
+propC.myc=ggplot(final_data, aes(x=E*100, y=proportion.C_HF, color=Site))+
    geom_smooth(method="lm",size=2, se=F)+
-  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
+#  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
   labs(x=" % ECM basal area ", y="MAOM C (proportion)", colour="Site")+
   theme_cowplot()+
   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
 
-concC.myc=ggplot(final_data, aes(x=E* 100, y=mg.C.per.g.soil_HF, color=factor(CDI)))+
+concC.myc=ggplot(final_data, aes(x=E* 100, y=mg.C.per.g.soil_HF, color=Site))+
    geom_smooth(method="lm",size=2, se=F)+
-  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
+#  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
   labs(x=" % ECM basal area ", y="[MAOM C] (mg/g soil)", colour="Site")+
   theme_cowplot()+
   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
-propN.myc=ggplot(final_data, aes(x=E*100, y=proportion.N_HF, color=factor(CDI)))+
+propN.myc=ggplot(final_data, aes(x=E*100, y=proportion.N_HF, color=Site))+
    geom_smooth(method="lm",size=2, se=F)+
-  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
+#  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
   labs(x=" % ECM basal area ", y="MAOM N (proportion)", colour="Site")+
   theme_cowplot()+
   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
-concN.myc=ggplot(final_data, aes(x=E*100, y=mg.N.per.g.soil_HF,color=factor(CDI)))+
+concN.myc=ggplot(final_data, aes(x=E*100, y=mg.N.per.g.soil_HF,color=Site))+
    geom_smooth(method="lm",size=2, se=F)+
-  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
+#  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
   labs(x=" % ECM basal area ", y="[MAOM N] (mg/g soil)", colour="Site")+
   theme_cowplot()+
   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
@@ -779,7 +777,7 @@ concN.myc=ggplot(final_data, aes(x=E*100, y=mg.N.per.g.soil_HF,color=factor(CDI)
 #   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
 ggarrange(propC.myc, propN.myc, concC.myc, concN.myc, nrow=2, ncol=2, common.legend=T, legend = "right", labels=c("a", "b", "c", "d"))
-ggsave("maom.cdi.plots.tiff",path="figures/", width= 24, height= 20, units="cm")
+
 
 
 
@@ -795,12 +793,14 @@ n.mod1=lmer(proportion.N_HF ~  E*CDI+FeOx  + (1|Site),
 n.mod2=lmer(mg.N.per.g.soil_HF ~  E*CDI+FeOx  + (1|Site),
            data=final_data,na.action = na.omit)
 
-tab_model(c.mod1, c.mod2, n.mod1, n.mod2, show.std=TRUE, show.se = TRUE, show.ci = FALSE, digits = 3, digits.re = 3)
+tab_model(c.mod1, c.mod2, show.std=TRUE, show.se = TRUE, show.ci = FALSE, digits = 3, digits.re = 3)
 
+tab_model(n.mod1, n.mod2, show.std=TRUE, show.se = TRUE, show.ci = FALSE, digits = 3, digits.re = 3)
 
 myc_gradient_prophf_slopes=coef(lmList(proportion.C_HF~E|Site , data = final_data))[2]
-mod=(lmList(proportion.C_HF~E|Site , data = final_data))
+mod=lmList(proportion.C_HF~E|Site , data = final_data)
 coef=coefficients(mod)
+
 
 c.mod1.slopes= as.data.frame(forests)%>% 
   arrange(forests) %>% 
@@ -841,7 +841,7 @@ w=ggplot(aes(x=forests, y=E, colour=factor(CDI)),data=c.mod1.slopes)+
   geom_point(size=5)+
   scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
   geom_hline(yintercept=0, linetype="dashed")+
-labs(x="  ", y="Change in MAOM C proportion\n along mycorrhizal gradient", colour="Site")+
+labs(x="  ", y="Change in f(MAOM C)\n along mycorrhizal gradient", colour="Site")+
   theme_cowplot()+
   ylim(-0.3, 0.3)+
    theme(legend.title=element_blank(), legend.text=element_text(size=12), axis.text=element_text(size=12), axis.text.x=element_text(angle=45, hjust=1), axis.title=element_text(size=13))
@@ -850,7 +850,7 @@ x=ggplot(aes(x=forests, y=E, colour=factor(CDI)),data=c.mod2.slopes)+
   geom_point(size=5)+
   scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
   geom_hline(yintercept=0, linetype="dashed")+
-labs(x="  ", y="Change in MAOM C concentration\n along mycorrhizal gradient", colour="Site")+
+labs(x="  ", y="Change in [MAOM C]\n along mycorrhizal gradient", colour="Site")+
   theme_cowplot()+
   theme(legend.title=element_blank(), legend.text=element_text(size=12), axis.text=element_text(size=12), axis.text.x=element_text(angle=45, hjust=1), axis.title=element_text(size=13))
 
@@ -858,7 +858,7 @@ y=ggplot(aes(x=forests, y=E, colour=factor(CDI)),data=n.mod1.slopes)+
   geom_point(size=5)+
   scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
   geom_hline(yintercept=0, linetype="dashed")+
-labs(x="  ", y="Change in MAOM N proportion\n along mycorrhizal gradient", colour="Site")+
+labs(x="  ", y="Change in f(MAOM N)\n along mycorrhizal gradient", colour="Site")+
   theme_cowplot()+
   ylim(-0.2, 0.2)+
  theme(legend.title=element_blank(), legend.text=element_text(size=12), axis.text=element_text(size=12), axis.text.x=element_text(angle=45, hjust=1), axis.title=element_text(size=13))
@@ -867,44 +867,44 @@ z=ggplot(aes(x=forests, y=E, colour=factor(CDI)),data=n.mod2.slopes)+
   geom_point(size=5)+
   scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
   geom_hline(yintercept=0, linetype="dashed")+
-labs(x="  ", y="Change in MAOM N concentration\n along mycorrhizal gradient", colour="Site")+
+labs(x="  ", y="Change in [MAOM N]\n along mycorrhizal gradient", colour="Site")+
   theme_cowplot()+
   ylim(-1.5, 1.5)+
   theme(legend.title=element_blank(), legend.text=element_text(size=12), axis.text=element_text(size=12), axis.text.x=element_text(angle=45, hjust=1), axis.title=element_text(size=13))
 
-ggarrange(w,x,y,z, nrow=2, ncol=2, legend=F)
-ggsave("Fig2.tiff",path="figures/", width= 18, height= 16, units="cm")
+ggarrange(w,x,y,z, labels=c("a", "b", "c", "d"), nrow=2, ncol=2, legend=F)
+ggsave("Fig2.tiff", path="figures/", width= 18, height= 16, units="cm")
 
 ```
 
 ```{r OLF_models, echo=F, message=F, warning=F, fig.width=11, fig.height=9}
 
-propC.myc.olf=ggplot(final_data, aes(x=E*100, y=proportion.C_OLF, color=factor(CDI)))+
+propC.myc.olf=ggplot(final_data, aes(x=E*100, y=proportion.C_OLF, color=Site))+
    geom_smooth(method="lm",size=2, se=F)+
-  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
+ # scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
   labs(x=" % ECM basal area ", y="oPOM C (proportion)", colour="Site")+
   theme_cowplot()+
   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
 
-concC.myc.olf=ggplot(final_data, aes(x=E*100, y=mg.C.per.g.soil_OLF, color=factor(CDI)))+
+concC.myc.olf=ggplot(final_data, aes(x=E*100, y=mg.C.per.g.soil_OLF, color=Site))+
    geom_smooth(method="lm",size=2, se=F)+
-  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
+#  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
   labs(x=" % ECM basal area ", y="[oPOM C] (mg/g soil)", colour="Site")+
   theme_cowplot()+
   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
-propN.myc.olf=ggplot(final_data, aes(x=E*100, y=proportion.N_OLF, color=factor(CDI)))+
+propN.myc.olf=ggplot(final_data, aes(x=E*100, y=proportion.N_OLF, color=Site))+
    geom_smooth(method="lm",size=2, se=F)+
-  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
+#  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
   labs(x=" % ECM basal area ", y="oPOM N (proportion)", colour="Site")+
   theme_cowplot()+
   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
 
-concN.myc.olf=ggplot(final_data, aes(x=E*100, y=mg.N.per.g.soil_OLF, color=factor(CDI)))+
+concN.myc.olf=ggplot(final_data, aes(x=E*100, y=mg.N.per.g.soil_OLF, color=Site))+
    geom_smooth(method="lm",size=2, se=F)+
-  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
+#  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
   labs(x=" % ECM basal area ", y="[oPOM N] (mg/g soil)", colour="Site")+
   theme_cowplot()+
   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
@@ -925,38 +925,39 @@ n.mod3=lmer(proportion.N_OLF ~  E*CDI+FeOx +(1|Site),
 n.mod4=lmer(mg.N.per.g.soil_OLF ~  E*CDI+FeOx +(1|Site),
            data=final_data,na.action = na.omit)
 
-tab_model(c.mod3, c.mod4, n.mod3, n.mod4, show.se = TRUE, show.std=TRUE, show.ci = FALSE, digits = 3, digits.re = 3)
+tab_model(c.mod3, c.mod4,  show.se = TRUE, show.std=TRUE, show.ci = FALSE, digits = 3, digits.re = 3)
+tab_model( n.mod3, n.mod4, show.se = TRUE, show.std=TRUE, show.ci = FALSE, digits = 3, digits.re = 3)
 ```
 
 
 ```{r FLF_models, echo=F, message=F, warning=F, fig.width=11, fig.height=9}
 
-propC.myc.flf=ggplot(final_data, aes(x=E*100, y=proportion.C_FLF, color=factor(CDI)))+
+propC.myc.flf=ggplot(final_data, aes(x=E*100, y=proportion.C_FLF, color=Site))+
    geom_smooth(method="lm",size=2, se=F)+
-  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
+#  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
   labs(x=" % ECM basal area ", y="fPOM C (proportion)", colour="Site")+
   theme_cowplot()+
   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
 
-concC.myc.flf=ggplot(final_data, aes(x=E*100, y=mg.C.per.g.soil_FLF, color=factor(CDI)))+
+concC.myc.flf=ggplot(final_data, aes(x=E*100, y=mg.C.per.g.soil_FLF, color=Site))+
    geom_smooth(method="lm",size=2, se=F)+
-  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
+#  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
   labs(x=" % ECM basal area ", y="[fPOM C] (mg/g soil)", colour="Site")+
   theme_cowplot()+
   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
-propN.myc.flf=ggplot(final_data, aes(x=E*100, y=proportion.N_FLF, color=factor(CDI)))+
+propN.myc.flf=ggplot(final_data, aes(x=E*100, y=proportion.N_FLF, color=Site))+
    geom_smooth(method="lm",size=2, se=F)+
-  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
+#  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
   labs(x=" % ECM basal area ", y="fPOM N (proportion)", colour="Site")+
   theme_cowplot()+
   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
 
-concN.myc.flf=ggplot(final_data, aes(x=E*100, y=mg.N.per.g.soil_FLF, color=factor(CDI)))+
+concN.myc.flf=ggplot(final_data, aes(x=E*100, y=mg.N.per.g.soil_FLF, color=Site))+
    geom_smooth(method="lm",size=2, se=F)+
-  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
+#  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
   labs(x=" % ECM basal area ", y="[fPOM N] (mg/g soil)", colour="Site")+
   theme_cowplot()+
   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
@@ -977,8 +978,39 @@ n.mod5=lmer(proportion.N_FLF ~  E*CDI+FeOx +(1|Site),
 n.mod6=lmer(mg.N.per.g.soil_FLF ~ E*CDI+FeOx +(1|Site),
            data=final_data,na.action = na.omit)
 
-tab_model(c.mod5, c.mod6, n.mod5, n.mod6, show.se = TRUE, show.std=TRUE, show.ci = FALSE, digits = 3, digits.re = 3)
+tab_model(c.mod5, c.mod6, show.se = TRUE, show.std=TRUE, show.ci = FALSE, digits = 3, digits.re = 3)
+tab_model(n.mod5, n.mod6, show.se = TRUE, show.std=TRUE, show.ci = FALSE, digits = 3, digits.re = 3)
 ```
+
+```{r proportion.figure, fig.width=14, fig.height=5}
+ggarrange(propC.myc.flf, propC.myc.olf, propC.myc, nrow=1, ncol=3, common.legend=T, legend="right", labels=c("a", "b","c"))
+ggsave("som.proportion.plots.tiff",path="figures/", width= 30, height= 10, units="cm")
+
+
+```
+
+```{r feox.figure,fig.width=9, fig.height=7}
+
+concC.fe.hf=ggplot(final_data, aes(x=FeOx, y=mg.C.per.g.soil_HF, color=Site))+
+   geom_smooth(method="lm",size=2, se=F)+
+  geom_point()+
+  labs(x=" % FeOx ", y="[MAOM C] (mg/g soil)", colour="Site")+
+  theme_cowplot()+
+  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
+
+concN.fe.hf=ggplot(final_data, aes(x=FeOx, y=mg.N.per.g.soil_HF, color=Site))+
+   geom_smooth(method="lm",size=2, se=F)+
+  geom_point()+
+  labs(x=" % FeOx ", y="[MAOM N] (mg/g soil)", colour="Site")+
+  theme_cowplot()+
+  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
+
+ggarrange(concC.fe.hf, concN.fe.hf, nrow=2, ncol=1, common.legend=T, legend="right", labels=c("a", "b"))
+ggsave("hf.conc.fe.tiff",path="figures/", width= 14, height= 20, units="cm")
+
+
+```
+
 
 ```{r cton, warning=F, echo=F, message=F, fig.width=11, fig.height=4}
 ctoN.myc.flf=ggplot(final_data, aes(x=E*100, y=C.N_FLF, colour=Site))+
@@ -1279,9 +1311,8 @@ corrplot(M, method="number", type="upper")
 # Fraction modern has no relationship with soil, plant, or climate variables but is inherently different on a site-by-site basis. It also has no bearing on the concentration or proportion of MAOM C in the soil. This is interesting because we hypothesized there would be a connection between the concentration of C in the MAOM fraction and the age of that C (bigger pool, more buidling up= older C and smaller pool= more dynamic pool= younger C) but that does not seem to be the case!  :
 ```{r radiocarbon_model, echo=F, message=F, warning=F}
 
-model.14C=lmer(fractionModern~E*CDI
-             +FeOx
-             + (1| Site),
+model.14C=lmer(fractionModern~FeOx+E*CDI+(E|Site),
+            # + (1| Site),
              data=final_data,
              na.action = na.omit)
 
@@ -1306,23 +1337,13 @@ tab_model(model.14C2, model.14C3, show.se = TRUE, show.ci = FALSE, digits = 2, d
 ggplot(final_data[final_data$Site!= "ORNL",], aes(x=Site, y=fractionModern))+
    stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.8, position="dodge")+
   stat_summary(fun.data = mean_se, geom = "errorbar", width=0.3, position = position_dodge(width = 0.8))+
+  labs(y="Fraction Modern")+
   geom_point()+
   theme_cowplot()
 
+ggsave("radiocarbon.FM.tiff",path="figures/", width= 18, height= 15, units="cm")
 
 ```
-
-
-
-
-```{r weighted average litter and root chem, warning=F, echo=F}
-
-
-
-```
-
-
-
 
 
 
@@ -1372,13 +1393,13 @@ ggplot(full_data_with_fractions, aes(x=E*100, y=meand15N, colour=Site.x))+
 #   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
 
-
-ggplot(full_data_with_fractions, aes(x=FB, y=proportion.C_HF, colour=Site.x))+
-   geom_smooth(method="lm",size=2, se=F)+
-   geom_point(size=3, alpha=0.5)+
-  labs(x=" F:B ", y="MAOM C (proportion) ")+
-  theme_cowplot()+
-  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
+# 
+# ggplot(full_data_with_fractions, aes(x=FB, y=proportion.C_HF, colour=Site.x))+
+#    geom_smooth(method="lm",size=2, se=F)+
+#    geom_point(size=3, alpha=0.5)+
+#   labs(x=" F:B ", y="MAOM C (proportion) ")+
+#   theme_cowplot()+
+#   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
 # ggplot(full_data_with_fractions, aes(x=meanCopyNumBactArch, y=proportion.C_HF, colour=Site.x))+
 #    geom_smooth(method="lm",size=2, se=F)+
@@ -1386,13 +1407,13 @@ ggplot(full_data_with_fractions, aes(x=FB, y=proportion.C_HF, colour=Site.x))+
 #   labs(x=" Fungal abundance ", y="MAOM C (proportion) ")+
 #   theme_cowplot()+
 #   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
-
-ggplot(full_data_with_fractions[which(full_data_with_fractions$meanTotalLipidConcentration< 140),], aes(x=meanTotalLipidConcentration, y=proportion.C_HF, colour=Site.x))+
-   geom_smooth(method="lm",size=2, se=F)+
-   geom_point(size=3, alpha=0.5)+
-  labs(x=" Microbial biomass ", y="MAOM C (proportion) ")+
-  theme_cowplot()+
-  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
+# 
+# ggplot(full_data_with_fractions[which(full_data_with_fractions$meanTotalLipidConcentration< 140),], aes(x=meanTotalLipidConcentration, y=proportion.C_HF, colour=Site.x))+
+#    geom_smooth(method="lm",size=2, se=F)+
+#    geom_point(size=3, alpha=0.5)+
+#   labs(x=" Microbial biomass ", y="MAOM C (proportion) ")+
+#   theme_cowplot()+
+#   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
 # HFC_micBiomass=lme(proportion.C_HF ~ meanTotalLipidConcentration, random=(~1|Site.x), data=full_data_with_fractions,na.action = na.omit)
 # 
@@ -1412,7 +1433,7 @@ ggplot(full_data_with_fractions[which(full_data_with_fractions$meanTotalLipidCon
 #zipsByProduct(dpID="DP1.10033.001", site=c("BART",  "TREE", "HARV",  "ORNL", "DELA", "LENO", "SERC"), package="basic", savepath="data/")
 #stackByTable(filepath="~/Documents/Projects/inProgress/MAOM_Postdoc/NEON_soil_data/data/filesToStack10033/", folder=T)
 
-litter_chem=read.csv("~/Documents/Projects/inProgress/MAOM_Postdoc/NEON_soil_data/data/filesToStack10033/stackedFiles/ltr_litterCarbonNitrogen.csv") %>%
+litter_chem=read.csv("data/filesToStack10033/stackedFiles/ltr_litterCarbonNitrogen.csv") %>%
   select(plotID, nitrogenPercent, carbonPercent, CNratio) %>%
   separate(plotID, into=c("Site", "plot"), sep="_", remove=F) %>% 
   group_by(Site) %>%
@@ -1425,7 +1446,7 @@ litter_chem=read.csv("~/Documents/Projects/inProgress/MAOM_Postdoc/NEON_soil_dat
 #zipsByProduct(dpID="DP1.10066.001", site=c("BART",  "TREE", "HARV",  "ORNL", "DELA", "LENO", "SERC"), package="basic", savepath="data/")
 #stackByTable(filepath="~/Documents/Projects/inProgress/MAOM_Postdoc/NEON_soil_data/data/filesToStack10066/", folder=T)
 
-root_chem=read.csv("~/Documents/Projects/inProgress/MAOM_Postdoc/NEON_soil_data/data/filesToStack10066/stackedFiles/mpr_carbonNitrogen.csv") %>% 
+root_chem=read.csv("data/filesToStack10066/stackedFiles/mpr_carbonNitrogen.csv") %>% 
   separate(cnSampleID, into=c("Site", "num", "topDepth","Status", "size"), extra="merge") %>% 
   mutate(topDepth=as.numeric(topDepth)) %>% 
   filter(topDepth<40) %>% 
@@ -1487,14 +1508,14 @@ roots_leaves_maom=ggarrange(MAOM_ROOTS_LITTER_Cconc, MAOM_ROOTS_LITTER_Cprop, MA
 ggsave("roots_leaves_maom.jpg", path="figures/", width= 16, height= 12, units="cm")
 
 
-summary(lm(mean_maom_c_conc ~ `Leaf litter`, data=siteMeanMAOM_wide))
-summary(lm(mean_maom_n_conc ~ `Leaf litter`, data=siteMeanMAOM_wide))
-summary(lm(mean_maom_prop_c ~ `Leaf litter`, data=siteMeanMAOM_wide))
-summary(lm(mean_maom_prop_n ~ `Leaf litter`, data=siteMeanMAOM_wide))
+# summary(lm(mean_maom_c_conc ~ `Leaf litter`, data=siteMeanMAOM_wide))
+# summary(lm(mean_maom_n_conc ~ `Leaf litter`, data=siteMeanMAOM_wide))
+# summary(lm(mean_maom_prop_c ~ `Leaf litter`, data=siteMeanMAOM_wide))
+# summary(lm(mean_maom_prop_n ~ `Leaf litter`, data=siteMeanMAOM_wide))
 ```
 
 
-```{r neon_ecm_v_litter}
+```{r neon_ecm_v_litter, echo=F}
 
 
 plot_trees_all=plot_trees_a %>% 
@@ -1508,7 +1529,7 @@ plot_trees_all=plot_trees_a %>%
   replace_na(list(E=0, A=0, B=0, ER=0)) 
 
 
-litter_chem_plots=read.csv("~/Documents/Projects/inProgress/MAOM_Postdoc/NEON_soil_data/data/filesToStack10033/stackedFiles/ltr_litterCarbonNitrogen.csv") %>%
+litter_chem_plots=read.csv("data/filesToStack10033/stackedFiles/ltr_litterCarbonNitrogen.csv") %>%
   select(plotID, nitrogenPercent, carbonPercent, CNratio) %>% 
   drop_na(CNratio) %>% 
   left_join(plot_trees_all, (by="plotID"))%>% 
@@ -1530,5 +1551,7 @@ litter_chem_ecm=lmer(CNratio~E+(1|Site),
 
 
 ```
+
+
 
 
