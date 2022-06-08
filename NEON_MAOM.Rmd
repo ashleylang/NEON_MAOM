@@ -1540,6 +1540,62 @@ litter_chem_ecm=lmer(CNratio~E+(1|Site),
 
 ```
 
+```{r destabilization_oxalic_calculations, echo=F, include=F}
+
+#Calculating amount of oxalic acid needed to add to equal 40% of the estimated microbial biomass C in each sample
+#Microbial biomass C estimated at 2.5% of the C in the MAOM + sand mixture (as in Jilling et al, 2021)
+
+#need data on the mg C per g MAOM:
+MAOM_C_conc=read.csv("SOM_Fractions_CN.csv") %>% 
+  separate(Sample.ID, into=c("Site", "Plot", "fraction")) %>% 
+  mutate(Site = str_replace(Site, "ORLN", "ORNL")) %>% 
+  filter(Site != "STANDARD",
+          fraction == "HF") %>% 
+   select(-Count) %>% 
+  unite(col="Sample.ID",c(Site, Plot), sep="_") %>% 
+  rename(pct.C.soil=pct.C, pct.N.soil=pct.N) %>% 
+  left_join(HF_mass) %>% 
+  separate(Sample.ID, into=c("Site", "Plot")) %>% 
+  arrange(Site) %>% 
+  rename(fraction_mass=HF.mass..mg.) %>% 
+  mutate(mg.C.per.g.MAOM=(pct.C.soil/100)*1000) %>% 
+  mutate(mg.micbmass.C.per.g.MAOM=.025*mg.C.per.g.MAOM) %>% 
+  mutate(mg.ox.acid.C.needed=0.4*mg.micbmass.C.per.g.MAOM) %>% 
+  mutate(mg.ox.acid.needed.anhydrous=(1/(24.022/90.034))*mg.ox.acid.C.needed) %>% 
+  mutate(mg.ox.acid.needed.dihydrate=(1/(24.022/126.065))*mg.ox.acid.C.needed)
+
+total.oxalic=MAOM_C_conc %>% 
+  summarise(total.oxalic.mass.mg=sum(mg.ox.acid.needed.dihydrate))
+
+#So how much oxalic acid powder does this mean we need to make these solutions...
+#90.034 g·mol−1 (anhydrous)
+#126.065 g·mol−1 (dihydrate)
+
+#The C is what proportion of those molar masses?
+ 24.022/90.034 
+ #0.267
+
+ #What is this application rate per gram of MAOM+sand?
+ 
+ 
+oxacid=ggplot(MAOM_C_conc, aes(x=Site, y=mg.ox.acid.C.needed))+
+   stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.8, position="dodge")+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.3, position = position_dodge(width = 0.8))+
+  labs(y="mg Oxalic Acid C needed")+
+  geom_point(alpha=0.5)+
+  theme_cowplot()
+oxacid
+```
+
+```{r DataNugget}
+
+Nugget_Data=final_data %>% 
+  select(Site, field_mean_annual_temperature_C, field_mean_annual_precipitation_mm, proportion.C_HF) %>% 
+  group_by(Site) %>% 
+  summarize(MAT=mean(field_mean_annual_temperature_C),
+            MAP=mean(field_mean_annual_precipitation_mm),
+            mean_pct.C.MAOM=(mean(proportion.C_HF))*100,
+            sd.pct.C.MAOM=sd(proportion.C_HF)*100)
 
 
-
+```
