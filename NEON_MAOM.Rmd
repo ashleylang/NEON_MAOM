@@ -241,7 +241,15 @@ top_three_species_site=plot_trees_a %>%
   summarize(sumBA=sum(sumBA)) %>% 
   arrange(siteID,-sumBA) %>% 
   mutate(rank=order(sumBA, decreasing=T)) %>% 
-  filter(rank<4)
+  filter(rank<6)
+
+top_three_species_plot=
+plot_trees_a %>% 
+  filter(plotID %in% plots) %>% 
+  arrange(plotID, speciesDominance) %>% 
+  group_by(plotID) %>% 
+  mutate(spp_rank=order(speciesDominance, decreasing=T)) %>% 
+  filter(spp_rank<4)
 
 plot_trees=plot_trees_a %>% 
   dplyr::group_by(plotID, mycType) %>% 
@@ -280,6 +288,9 @@ plotPctAngio=read.csv("data/filesToStack10098/stackedFiles/vst_apparentindividua
   distinct() %>% 
   rename(fractionAngiosperm=A) %>% 
   filter(plotID %in% plots)
+
+angio_dominated=plotPctAngio %>% 
+  filter(fractionAngiosperm>0.5)
 
 
 received_samples=read.csv("Samples_received.csv") %>%
@@ -501,6 +512,21 @@ left_join(radiocarbon, by="plotID") %>%
   left_join(measured_Fe_Ox, by="plotID") %>% 
 left_join( periodic_soil_chem, by="plotID") 
 
+final_data_tree_spp=final_data %>% 
+    arrange(Site, mg.N.per.g.soil_HF) %>%
+  group_by(Site) %>% 
+  mutate(rank_mgN=order(mg.N.per.g.soil_HF)) %>%
+  select(Site, plotID, E, mg.N.per.g.soil_HF, mg.C.per.g.soil_HF, proportion.C_HF, proportion.N_HF, rank_mgN) %>% 
+  left_join(top_three_species_plot, by="plotID")
+  
+#herbaceous cover data
+#zipsByProduct(dpID="DP1.10023.001", site=c("BART", "HARV", "TREE",  "ORNL", "DELA", "LENO",  "SERC"), package="basic", savepath="data/")
+#stackByTable(filepath="data/filesToStack10023/", folder=T)
+
+herbaceousCover=read.csv("data/filesToStack10023/stackedFiles/hbp_massdata.csv") %>% 
+  filter(grepl("2017", collectDate),
+         plotID %in% plots,
+         dryMass != 0)
 
 #Color palette
 soil_fractions=c("#5C4E19", "#9F8A3B", "#DDD1A3")
@@ -602,7 +628,6 @@ ggsave("cn.fractions.jpg", path="figures/", width= 21, height= 12, units="cm")
 
 ```{r propC.fractions, echo=F, message=F, warning=F, eval=F, include=F}
 
-
 ggplot(soil_CN_summary, aes(x=reorder(Site, -MAT), fill=fraction, y=mean.prop.C)) + 
     geom_bar(position="stack", stat="identity")+
   scale_fill_manual(name= "Soil Fraction", values=soil_fractions)+
@@ -610,7 +635,6 @@ ggplot(soil_CN_summary, aes(x=reorder(Site, -MAT), fill=fraction, y=mean.prop.C)
   theme_cowplot()+
   theme(axis.text.x = element_text( angle = 30, hjust=1, vjust=1, size=15), axis.title.y=element_text(size=18))
 ggsave("propC_site.jpg", path="figures/", width= 21, height= 17, units="cm")
-
 
 
 ```
@@ -782,22 +806,25 @@ geom_point(aes(color=Site))+
 
 
 concC.myc=ggplot(final_data, aes(x=E* 100, y=mg.C.per.g.soil_HF, color=Site))+
-   geom_smooth(method="lm",size=2, se=F)+
-#  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
+  geom_point(aes(color=Site))+
+   geom_smooth(method="lm",size=2, se=F, linetype="dashed")+
+scale_color_viridis_d()+
   labs(x=" % ECM basal area ", y="[MAOM C] (mg/g soil)", colour="Site")+
   theme_cowplot()+
   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
 propN.myc=ggplot(final_data, aes(x=E*100, y=proportion.N_HF, color=Site))+
+  geom_point(aes(color=Site))+
    geom_smooth(method="lm",size=2, se=F)+
-#  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
+scale_color_viridis_d()+
   labs(x=" % ECM basal area ", y=expression("proportion N"[MAOM]), colour="Site")+
   theme_cowplot()+
   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
 concN.myc=ggplot(final_data, aes(x=E*100, y=mg.N.per.g.soil_HF,color=Site))+
+  geom_point(aes(color=Site))+
+scale_color_viridis_d()+
    geom_smooth(method="lm",size=2, se=F)+
-#  scale_colour_manual(values=cdi_colors, labels =  c("TREE", "BART", "HARV", "SERC", "ORNL", "DELA", "LENO"))+
   labs(x=" % ECM basal area ", y="[MAOM N] (mg/g soil)", colour="Site")+
   theme_cowplot()+
   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
@@ -812,6 +839,9 @@ concN.myc=ggplot(final_data, aes(x=E*100, y=mg.N.per.g.soil_HF,color=Site))+
 #   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
 ggarrange(propC.myc, propN.myc, concC.myc, concN.myc, nrow=2, ncol=2, common.legend=T, legend = "right", labels=c("a", "b", "c", "d"))
+
+
+ggsave("HF_C_N_by_myc.jpg", path="figures/", width= 20, height= 18, units="cm")
 
 
 #with lme (nlme): can't compute the conditional r2 for c mod 2
@@ -877,7 +907,7 @@ pl <- c(
 )
 
 tab_model(c.mod1, c.mod2, n.mod1, n.mod2, show.se = TRUE, show.ci = FALSE, digits = 2, digits.re = 2,pred.labels = pl, 
-  dv.labels = c("proportion MAOM C", "[MAOM C]", "proportion MAOM N", "[MAOM N]"), show.df=TRUE)
+  dv.labels = c("proportion MAOM C", "[MAOM C]", "proportion MAOM N", "[MAOM N]"), show.df=TRUE, show.std=T)
 
 
 #what % of total C was MAOM C in each site?
@@ -893,12 +923,20 @@ pct.MAOM.N=final_data %>%
 #Need to isolate lowest and highest sites along each gradient, then average the prop C and prop N HF
 end_members_maom_prop=final_data %>% 
   select(Site,Plot.x,E, proportion.C_HF, proportion.N_HF) %>% 
-  group_by(Site) %>% 
-  mutate(myc_rank=order(E)) %>% 
-  mutate(maxE=max(myc_rank)) %>% 
-  filter(myc_rank==maxE)
+  arrange(Site,E) %>% 
+   group_by(Site) %>% 
+  mutate(myc_rank=order(E, decreasing=T)) %>% 
+  mutate(max_A=max(myc_rank)) %>% 
+  filter(myc_rank==max_A) %>% 
+  ungroup() %>% 
+  mutate(mean_prop_C=mean(proportion.C_HF),
+         mean_prop_N=mean(proportion.N_HF))
 
-  
+ #At max ECM dominance, avg. proportion C in MAOM was 0.75831, N was 0.85565
+
+#At max AM dominance, avg proportion C in MAOM was 0.83787, N was 0.89959
+
+#from AM to ECM, MAOM C prop dropped 7.956%, N dropped 4.39%
 
           
 ```
@@ -991,7 +1029,7 @@ labs(x=" Climate Decomposition Index ", y="Change in [MAOM N]\n along mycorrhiza
 #hjust = 0,nudge_y= 0.15, nudge_x = 0.0005,
 
 ggarrange(w,x,y,z, labels=c("a", "b", "c", "d"), nrow=2, ncol=2, legend=F)
-ggsave("Fig2.jpg", path="figures/", width= 18, height= 16, units="cm")
+ggsave("Fig2.png", path="figures/", width= 18, height= 16, units="cm")
 
 ```
 
@@ -1101,11 +1139,14 @@ n.mod5=lmer(proportion.N_FLF ~  E+CDI+FeOx +(1|Site),
 n.mod6=lmer(mg.N.per.g.soil_FLF ~ E+CDI+FeOx +(1|Site),
            data=final_data,na.action = na.omit)
 
-tab_model(c.mod5, c.mod6, show.se = TRUE, show.std=TRUE, show.ci = FALSE, digits = 3, digits.re = 3,show.df=TRUE)
-tab_model(n.mod5, n.mod6, show.se = TRUE, show.std=TRUE, show.ci = FALSE, digits = 3, digits.re = 3)
+tab_model(c.mod5, c.mod6,n.mod5, n.mod6, show.se = TRUE, show.std=TRUE, show.ci = FALSE, digits = 3, digits.re = 3,show.df=TRUE)
+
 ```
 
 ```{r proportion.figure, fig.width=14, fig.height=5}
+ggarrange(propC.myc.flf, propC.myc.olf, propC.myc, nrow=1, ncol=3, common.legend=T, legend="right", labels=c("a", "b","c"))
+ggsave("som.proportion.plots.jpg",path="figures/", width= 30, height= 10, units="cm")
+
 ggarrange(propC.myc.flf, propC.myc.olf, propC.myc, nrow=1, ncol=3, common.legend=T, legend="right", labels=c("a", "b","c"))
 ggsave("som.proportion.plots.jpg",path="figures/", width= 30, height= 10, units="cm")
 
@@ -1116,19 +1157,30 @@ ggsave("som.proportion.plots.jpg",path="figures/", width= 30, height= 10, units=
 concC.fe.hf=ggplot(final_data, aes(x=FeOx, y=mg.C.per.g.soil_HF, color=Site))+
    geom_smooth(method="lm",size=2, se=F)+
   geom_point()+
+   scale_colour_viridis_d()+
   labs(x=" % FeOx ", y="[MAOM C] (mg/g soil)", colour="Site")+
   theme_cowplot()+
   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
+propC.fe.hf=ggplot(final_data, aes(x=FeOx, y=proportion.C_HF, color=Site))+
+   geom_smooth(method="lm",size=2, se=F)+
+  geom_point()+
+   scale_colour_viridis_d()+
+  labs(x=" % FeOx ", y=expression("proportion C"[MAOM]), colour="Site")+
+  theme_cowplot()+
+  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
+
+
 concN.fe.hf=ggplot(final_data, aes(x=FeOx, y=mg.N.per.g.soil_HF, color=Site))+
    geom_smooth(method="lm",size=2, se=F)+
   geom_point()+
+   scale_colour_viridis_d()+
   labs(x=" % FeOx ", y="[MAOM N] (mg/g soil)", colour="Site")+
   theme_cowplot()+
   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
-ggarrange(concC.fe.hf, concN.fe.hf, nrow=1, ncol=2, common.legend=T, legend="right", labels=c("a", "b"))
-ggsave("hf.conc.fe.pdf",path="figures/", width= 20, height= 10, units="cm")
+ggarrange( propC.fe.hf,concC.fe.hf, nrow=1, ncol=2, common.legend=T, legend="right")
+ggsave("hf.conc.prop.fe.pdf",path="figures/", width= 20, height= 10, units="cm")
 
 #what are the slopes of these lines?
 fe_conchf_slopes_C=coef(lmList(mg.C.per.g.soil_HF~FeOx|Site , data = final_data))[2]
@@ -1296,7 +1348,7 @@ model.14C=lmer(d14C~FeOx+E*CDI+(E|Site),
              data=final_data,
              na.action = na.omit)
 
-#FeOx+Site yeilds conditional r2 of 0.727
+#FeOx+Site yields conditional r2 of 0.727
 #E + SIte 0.673
 #CDI + Site 0.718
 
@@ -1324,12 +1376,31 @@ ggplot(final_data[final_data$Site!= "ORNL",], aes(x=Site, y=d14C))+
   stat_summary(fun.data = mean_se, geom = "errorbar", width=0.3, position = position_dodge(width = 0.8))+
   geom_hline(yintercept=0, linetype="dashed")+
   labs(y=expression(MAOM~delta^14*C))+
+  scale_x_discrete(limits=c("TREE", "BART", "HARV", "SERC", "DELA", "LENO"))+
   geom_point()+
   theme_cowplot()
 
 # y=expression(atop(Adjusted~soil~respiration~rate, paste("("*mu*mol~CO[2]~m^-2~s^-1*")"))))
 
 ggsave("radiocarbon.FM.pdf",path="figures/", width= 14, height= 10, units="cm")
+
+ggplot(final_data[final_data$Site!= "ORNL",], aes(x=E*100, y=d14C, color=Site))+
+  geom_point()+
+  geom_smooth(method="lm", se=T, linetype="dashed", alpha=0.2)+
+  scale_color_viridis_d()+
+  labs(x="Ectomycorrhizal tree dominance (%)", y=expression(MAOM~delta^14*C))+
+  theme_cowplot()
+
+ggsave("ECM_vs_d14C.jpg", path="figures/", width= 14, height= 12, units="cm")
+
+ggplot(final_data[final_data$Site!= "ORNL",], aes(x=FeOx, y=d14C, color=Site))+
+  geom_point()+
+  geom_smooth(method="lm", se=T, linetype="dashed", alpha=0.2)+
+  scale_color_viridis_d()+
+  labs(x="Oxalate Extractable Iron Content (%)", y=expression(MAOM~delta^14*C))+
+  theme_cowplot()
+
+ggsave("FeOx_vs_d14C.jpg", path="figures/", width= 14, height= 12, units="cm")
 
 ```
 
@@ -1585,6 +1656,10 @@ oxacid=ggplot(MAOM_C_conc, aes(x=Site, y=mg.ox.acid.C.needed))+
   geom_point(alpha=0.5)+
   theme_cowplot()
 oxacid
+
+
+
+
 ```
 
 ```{r DataNugget}
@@ -1597,5 +1672,115 @@ Nugget_Data=final_data %>%
             mean_pct.C.MAOM=(mean(proportion.C_HF))*100,
             sd.pct.C.MAOM=sd(proportion.C_HF)*100)
 
+
+```
+
+```{r species-figure}
+#Trying to make a figure for each site where the plots are in order of MAOM N concentration and the top three genera in each plot are labels on the dots
+
+ggplot(final_data_tree_spp, aes(x=E, y=mg.N.per.g.soil_HF))+
+  geom_point(color="blue")+
+  geom_smooth(method="lm", color="blue")+
+  geom_label_repel(aes(label=genus))+
+  facet_wrap(~Site)+
+  theme_cowplot()
+
+ggsave("top_species_MAOM_N_conc.jpg", path="figures/", width= 40, height= 36, units="cm")
+
+
+```
+
+
+```{r plotPercentAngiosperms_figure}
+
+ecm_order=received_samples_plot %>% 
+  select(plotID, order) %>% 
+  distinct()
+
+pctAngio=ggplot(plotPctAngio %>%
+                  rename("Angiosperm"="fractionAngiosperm") %>% 
+                  mutate(Gymnosperm=1-Angiosperm,
+                         plotID=as.character(plotID))%>% 
+                           pivot_longer(c(Angiosperm, Gymnosperm), names_to="gymAng", values_to="dominance") %>% 
+                  left_join(ecm_order) , aes(x=order, y=dominance, fill=gymAng))+
+  geom_bar(position="stack", stat="identity", colour="black")+
+  scale_fill_manual( values=c("gray90", "gray20"))+
+  xlab("Study Plot")+
+  ylab("Proportion of Basal Area")+
+  facet_wrap(~Site, scales="free_x")+
+  theme_cowplot()+
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),strip.background = element_rect( fill="white"),legend.title=element_blank())
+
+ggsave("pctAngioGymno.jpg", path="figures/", width= 20, height= 16, units="cm")
+
+BAbyMYC=ggplot(final_data %>% 
+                 left_join(ecm_order), aes(x=order, y=plotBA))+
+  geom_bar( stat="identity", colour="black")+
+  xlab("Study plots in order of increasing ECM dominance")+
+  ylab("Basal Area")+
+  facet_wrap(~Site, scales="free_x")+
+  theme_cowplot()+
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),strip.background = element_rect( fill="white"),legend.title=element_blank())
+
+ggsave("BAmyc.jpg", path="figures/", width= 20, height= 16, units="cm")
+
+```
+
+
+```{r climate_BA_Fe}
+#Relationships between site-level climate decomposition index (CDI) and a) soil oxalate-extractable iron content, and b) total tree basal area in our study plots.
+
+basal_area_cdi=ggplot(final_data, aes(x=CDI, y=plotBA))+
+   geom_point()+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.0009, position="dodge")+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.0005, position = position_dodge(width = 0.0009))+
+  geom_smooth(method="lm")+
+                theme_cowplot()+
+  xlab("Climate Decomposition Index")+
+  ylab("Total Basal Area"
+  )
+
+
+feox_cdi=ggplot(final_data, aes(x=CDI, y=FeOx))+
+   geom_point()+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.0009, position="dodge")+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.0005, position = position_dodge(width = 0.0009))+
+    geom_smooth(method="lm")+
+                theme_cowplot()+
+  xlab("Climate Decomposition Index")+
+  ylab("Soil Oxalate-Extractable Iron"
+  )
+
+ggarrange(basal_area_cdi, feox_cdi, ncol=2, nrow=1, labels= c("a","b"), legend=F)
+ggsave("FigS2.jpg", path="figures/", width= 24, height= 12, units="cm")
+
+
+summary(lm(FeOx~CDI,data=final_data )) #yes, more FeOx in warmer sites
+summary(lm(mg.C.per.g.soil_HF~FeOx,data=final_data %>% filter(Site=="LENO") )) #yes within this site Fe Ox is a big driver of concentrations
+summary(lm(mg.C.per.g.soil_HF~FeOx,data=final_data %>% filter(Site=="DELA") ))  #yes within this site Fe Ox is a big driver of concentrations
+
+summary(lm(FeOx~E,data=final_data )) #no overall trend with FeOx and ECM dominance across sites
+summary(lm(FeOx~E,data=final_data %>% filter(Site=="LENO") )) # yes within LENO positive relationship between soil FeOx and ECM dominance
+summary(lm(FeOx~E,data=final_data %>% filter(Site=="DELA") )) # not at all within DELA 
+```
+```{r feox ecm}
+ggplot(final_data, aes(x=E, y=FeOx))+
+  geom_point(color="blue")+
+  geom_smooth(method="lm", color="blue")+
+  facet_wrap(~Site)+
+  theme_cowplot()
+
+ggsave("ECM_vs_FeOx.jpg", path="figures/", width= 30, height= 24, units="cm")
+
+```
+
+```{r random}
+ggplot(final_data, aes(x=field_mean_annual_precipitation_mm, y=C.N_HF, colour=Site))+
+   geom_smooth(method="lm",size=2, se=F)+
+   geom_point(size=3, alpha=0.5)+
+  theme_cowplot()+
+  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
+
+ggsave("maom_cn_precip.jpg", path="figures/", width= 19, height= 16, units="cm")
 
 ```
