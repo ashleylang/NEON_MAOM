@@ -28,12 +28,10 @@ library(viridis)
 data(vascular.families)
  library(MuMIn)
 
-# Colorblind-friendly palette with black:
-cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
-
-
+#Identify study sites
 forests=c("BART","DELA","HARV","ORNL","TREE","LENO", "SERC")
 
+#Get climate data for each site:
 site_clim=read.csv("NEON_Field_Site_Metadata_20201204.csv") %>% 
   select(field_site_id, field_mean_annual_temperature_C, field_mean_annual_precipitation_mm, field_domint_plant_species) %>% 
   rename(Site=field_site_id) %>%
@@ -41,18 +39,18 @@ site_clim=read.csv("NEON_Field_Site_Metadata_20201204.csv") %>%
 
 CDI=read.csv("CDI.csv")
 
-
-
 site_lats=read.csv("NEON_Field_Site_Metadata_20201204.csv") %>% 
   select(field_site_id, field_latitude, field_longitude)
 
+#create list of samples received from Biorepository 
 received_sampleID=read.csv("Samples_received.csv") %>%
   select(sampleID) %>% 
   mutate(sampleID = substr(sampleID,1,nchar(sampleID)-3))
 
 sampleIDs=received_sampleID$sampleID
 
-#Radiocarbon decay constant
+#Radiocarbon calculations
+#decay constant
 lambda=1/8267
 
 radiocarbon=read.csv("NEON_14C_data.csv") %>% 
@@ -62,7 +60,7 @@ radiocarbon=read.csv("NEON_14C_data.csv") %>%
   mutate(decayRate=(fractionModern*lambda)/(1-fractionModern),
          turnoverTime=1/decayRate) #Calculating decomposition rate of the C. For details about the derivation of this formula see Trumbore et al. (2016).
 
-#My fractionation data: This spreadsheet has been manually updated with re-runs from Elizabeth on April 7 2021. Spreadsheet with both original and re-run values saved as "Full_data_ALNeon_MAOM_EA_results.xlsx"
+#Density fractionation data: This spreadsheet has been manually updated with EA re-runs from EHP on April 7 2021. 
 CN_data=read.csv("SOM_Fractions_CN.csv") %>% 
   separate(Sample.ID, into=c("Site", "Plot", "fraction")) %>% 
   mutate(Site = str_replace(Site, "ORLN", "ORNL")) %>% 
@@ -70,6 +68,7 @@ CN_data=read.csv("SOM_Fractions_CN.csv") %>%
   filter(Sample.ID != "STANDARD_FILTER") %>% 
   select(-Count)
 
+#Setting up lists for later binding/filtering
 plots=unique(CN_data$Sample.ID)
 
 HF_mass=read.csv("SOM_Fractions_Lab_Notebook.csv") %>% 
@@ -77,13 +76,13 @@ HF_mass=read.csv("SOM_Fractions_Lab_Notebook.csv") %>%
 
 HF_CN=read.csv("SOM_Fractions_CN.csv") %>% 
   separate(Sample.ID, into=c("Site", "Plot", "fraction")) %>% 
-  mutate(Site = str_replace(Site, "ORLN", "ORNL")) %>% 
-  filter(Site != "STANDARD",
+  dplyr::mutate(Site = str_replace(Site, "ORLN", "ORNL")) %>% #fixing typos
+  dplyr::filter(Site != "STANDARD",
           fraction == "HF") %>% 
-   select(-Count) %>% 
+   dplyr::select(-Count) %>% 
   unite(col="Sample.ID",c(Site, Plot), sep="_") %>% 
   rename(pct.C.soil=pct.C, pct.N.soil=pct.N) %>% 
-  left_join(HF_mass) %>% 
+  left_join(HF_mass, by="Sample.ID") %>% 
   rename(soil=HF.mass..mg.)
 
 total.fractions.mass=read.csv("SOM_Fractions_Lab_Notebook.csv") %>% 
@@ -92,8 +91,6 @@ total.fractions.mass=read.csv("SOM_Fractions_Lab_Notebook.csv") %>%
 total.soil.mass=read.csv("SOM_Fractions_Lab_Notebook.csv") %>% 
   select(Sample.ID, mg.total.soil..aim.5000.)
 
-
-  
 total.C=read.csv("SOM_Fractions_Lab_Notebook.csv") %>% 
   select(Sample.ID, FLF.filter.air.dry.mass..mg., oLF.filter.air.dry.mass..mg., fLF.mass..mg., oLF.mass..mg.) %>% 
   rename(FLF.filter=FLF.filter.air.dry.mass..mg.,OLF.filter=oLF.filter.air.dry.mass..mg., FLF.soil=fLF.mass..mg., 
@@ -112,7 +109,7 @@ total.C=read.csv("SOM_Fractions_Lab_Notebook.csv") %>%
          C.N=pct.C.soil/pct.N.soil) %>% 
   mutate_if(is.numeric, list(~na_if(., Inf))) %>% 
   select(Sample.ID, fraction, pct.N.soil, pct.C.soil, C.N, Sample.mass, soil) %>% 
-  rbind(HF_CN) %>% 
+  rbind(HF_CN) %>% #need to join by sample ID
   rename(fraction.mass=soil) %>% 
   select(Sample.ID, fraction.mass, pct.N.soil, pct.C.soil, fraction) %>% 
   pivot_wider(names_from=fraction, values_from=c(pct.N.soil, pct.C.soil, fraction.mass)) %>% 
@@ -124,7 +121,7 @@ total.C=read.csv("SOM_Fractions_Lab_Notebook.csv") %>%
          mg.N.HF=(pct.N.soil_HF/100)*fraction.mass_HF) %>% 
   mutate(Total.C=mg.C.FLF+ mg.C.OLF+ mg.C.HF,
          Total.N=mg.N.FLF+mg.N.OLF+mg.N.HF) %>% 
-  select(Sample.ID, Total.C, Total.N)
+  dplyr::select(Sample.ID, Total.C, Total.N)
 
 soil_CN=read.csv("SOM_Fractions_Lab_Notebook.csv") %>% 
   select(Sample.ID, FLF.filter.air.dry.mass..mg., oLF.filter.air.dry.mass..mg., fLF.mass..mg., oLF.mass..mg.) %>% 
@@ -148,7 +145,6 @@ soil_CN=read.csv("SOM_Fractions_Lab_Notebook.csv") %>%
   rename(fraction.mass=soil) %>% 
   left_join(total.fractions.mass, by="Sample.ID") %>% 
   left_join(total.soil.mass, by="Sample.ID") %>%
-  #select( -X.1, -X.2, -X.3, -X.4, -X.5, -X.6, -X.7, -X.8, -X.9, -flf.mass.flf.filter.mass, X..recovery) %>% 
   left_join(total.C, by="Sample.ID") %>% 
   separate(Sample.ID, into=c("Site", "Plot")) %>% 
   mutate(mg.C=(pct.C.soil/100)*fraction.mass, 
@@ -364,12 +360,7 @@ clay_summary=particle_size %>%
   left_join(site_clim, by=c("site"="Site")) %>% 
     left_join(CDI, by=c("site"="Site"))
 
-
-
-# litter_chem_plots=litter_chem %>% 
-#   filter(plotID %in% plots)
-
-#Soil periodic measurements:
+#Importing NEON data for soil periodic chemistry measurements:
   # zipsByProduct(dpID="DP1.10086.001", site=c("BART", "HARV", "TREE",  "ORNL", "DELA", "LENO",  "SERC"), package="basic", savepath="data/")
   #    stackByTable(filepath="data/filesToStack10086/", folder=T)
 
@@ -383,112 +374,18 @@ periodic_soil_chem=read.csv("data/filesToStack10086/stackedFiles/sls_soilChemist
             meanorganicd13C=mean(organicd13C),
             meand15N=mean(d15N))
 
-sample_depths=read.csv("data/filesToStack10047/stackedFiles/spc_biogeochem.csv") %>%
-  filter(plotID %in% plots) %>% 
-  filter(siteID=="HARV")
-
-organic_horizon_chem=read.csv("data/filesToStack10086/stackedFiles/sls_soilChemistry.csv")  %>% 
-  filter(plotID %in% plots, 
-         grepl("-O-",sampleID)) %>% 
-  group_by(plotID) %>% 
-  summarise(meanNitrogenPercent=mean(nitrogenPercent),
-            meanOrganicCarbonPercent=mean(organicCPercent),
-            meanCNratio=mean(CNratio)) %>% 
-    left_join(plot_trees, by="plotID") 
-
-moisturesubs=read.csv("moisturesubs.csv")
-periodic_moisture=read.csv("data/filesToStack10086/stackedFiles/sls_soilMoisture.csv")%>% 
-  #filter(grepl("-M-",sampleID)) %>% 
-  filter(!is.na(dryMassFraction)) %>%
-  group_by(plotID) %>% 
-  summarise(meandryMassFraction=mean(dryMassFraction)) %>% 
-  filter(plotID %in% plots) %>% 
-  rbind(moisturesubs) %>%  #Missing 3 bartlett plots: 032 (substitute 071), 033 (substitute 036), 034 (substitute 036).
-  arrange(plotID) %>% 
-  mutate(meandryMassFraction=as.numeric(meandryMassFraction))
-
-pHsubs=read.csv("pHsubs.csv")
-periodic_pH=read.csv("data/filesToStack10086/stackedFiles/sls_soilpH.csv")%>% 
- # filter(grepl("-M-",sampleID)) %>% 
-  filter(!is.na(soilInWaterpH)) %>% 
-  group_by(plotID) %>% 
-  summarise(meanpH=mean(soilInWaterpH)) %>% 
-    filter(plotID %in% plots) %>% 
-  rbind(pHsubs) %>%  #Missing 3 bartlett plots: 032 (substitute 071), 033 (substitute 036), 034 (substitute 036).
-  arrange(plotID)
-
-
-#microbial group abundances:
- # zipsByProduct(dpID="DP1.10109.001", site=c("BART", "HARV", "TREE",  "ORNL", "DELA", "LENO",  "SERC"), package="basic", savepath="data/")
- # stackByTable(filepath="data/filesToStack10109/", folder=T)
-FBsubs=read.csv("FBsubs.csv")
-microbesFB=read.csv("~/Documents/Projects/inProgress/MAOM_Postdoc/NEON_soil_data/data/filesToStack10109/stackedFiles/mga_soilGroupAbundances.csv") %>% 
-  #filter(grepl("-M-", geneticSampleID)) %>% 
-  group_by(plotID, targetTaxonGroup) %>%
-  summarise(meanCopyNumber=mean(meanCopyNumber)) %>% 
-  pivot_wider(names_from=targetTaxonGroup, values_from=meanCopyNumber) %>% 
-  rename("meanCopyNumBactArch"="bacteria and archaea",
-         "meanCopyNumFungi"=fungi) %>% 
-  select(-bacteria, -archaea) %>% 
-  mutate(FB=meanCopyNumFungi/meanCopyNumBactArch) %>% 
-  filter(FB<.02)%>% 
-  filter(plotID %in% plots) %>%   #Missing 3 bartlett plots: 032 (substitute 071), 033 (substitute 036), 034 (substitute 036) and 3 Harvard plots: 001 (sub 020), 004 (sub 020), 016 (sub 020)
-rbind(FBsubs) %>% 
-  arrange(plotID)
-
-
-microbesFB_plots=microbesFB %>% 
-  filter(plotID %in% plots) %>% 
-  left_join(plot_trees)
-
-#microbial biomass: Missing all Bartlett data
- # zipsByProduct(dpID="DP1.10104.001", site=c("BART", "HARV", "TREE",  "ORNL", "DELA", "LENO",  "SERC"), package="basic", savepath="data/")
- # stackByTable(filepath="data/filesToStack10104/", folder=T)
- #  
-
-microbialBiomass=read.csv("data/filesToStack10104/stackedFiles/sme_microbialBiomass.csv") %>% 
-  filter(grepl("-M-", sampleID)) %>%
-  group_by(plotID) %>% 
-  summarize(meanTotalLipidConcentration=mean(totalLipidConcentration))
-
-# microbial community composition
-# zipsByProduct(dpID="DP1.10081.001", site=c("BART", "HARV", "TREE",  "ORNL", "DELA", "LENO",  "SERC"), package="basic", savepath="data/")
-# stackByTable(filepath="data/filesToStack10081/", folder=T)
-  
-bacterialCommunity=read.csv("data/filesToStack10081/stackedFiles/mcc_soilSeqVariantMetadata_16S.csv") %>% 
-  filter(grepl("-M-", geneticSampleID)) %>%
-  group_by(plotID) %>% 
-  summarize(mean16SSFRN=mean(sampleFilteredReadNumber))
-  
-fungalCommunity=read.csv("data/filesToStack10081/stackedFiles/mcc_soilSeqVariantMetadata_ITS.csv") %>% 
-  filter(grepl("-M-", geneticSampleID)) %>%
-  group_by(plotID) %>% 
-  summarize(meanITSSFRN=mean(sampleFilteredReadNumber))
 
 
 full_data_with_fractions=soil_CN %>% 
    pivot_wider(!c(field_mean_annual_precipitation_mm, field_mean_annual_temperature_C), values_from=c(pct.N.soil, pct.C.soil, C.N, Sample.mass, fraction.mass, Total.fractions.mass, Total.C, mg.C, mg.N, mg.C.per.g.soil, mg.N.per.g.soil, proportion.C, proportion.N),names_from=fraction) %>% 
   left_join(plot_trees, by="plotID") %>% 
   left_join(periodic_soil_chem, by="plotID") %>% 
-  left_join(periodic_moisture, by="plotID") %>% 
-  left_join(periodic_pH, by="plotID") %>% 
- #  left_join(litter_chem, by="plotID") %>% 
-  #left_join(soil_biogeochem, by="plotID") %>% 
-  #left_join(soil_biogeochem_fe_summary, by=c("Site.x"="Site")) %>% 
-  #left_join(particle_size, by="plotID") %>% 
-  left_join(clay_summary, by=c("Site.x"="site")) %>% 
-  left_join(microbesFB, by="plotID") %>% 
-  #left_join(microbialBiomass, by="plotID") %>% 
- # left_join(bacterialCommunity, by="plotID") %>%
-  #left_join(fungalCommunity, by="plotID") %>% 
   left_join(site_clim, by=c("Site.x"="Site")) %>%
   left_join(CDI, by=c("Site.x"="Site")) %>%
   arrange(plotID)
 
 neon_full_data= periodic_soil_chem %>%  #periodic characterization
-  left_join(periodic_pH, by="plotID") %>% 
   left_join(soil_biogeochem, by="plotID") %>% #initial characterization
-#    left_join(litter_chem, by="plotID") %>% #litter
   left_join(plot_trees, by="plotID")
 
   
@@ -518,38 +415,15 @@ final_data_tree_spp=final_data %>%
   mutate(rank_mgN=order(mg.N.per.g.soil_HF)) %>%
   select(Site, plotID, E, mg.N.per.g.soil_HF, mg.C.per.g.soil_HF, proportion.C_HF, proportion.N_HF, rank_mgN) %>% 
   left_join(top_three_species_plot, by="plotID")
-  
-#herbaceous cover data
-#zipsByProduct(dpID="DP1.10023.001", site=c("BART", "HARV", "TREE",  "ORNL", "DELA", "LENO",  "SERC"), package="basic", savepath="data/")
-#stackByTable(filepath="data/filesToStack10023/", folder=T)
 
-herbaceousCover=read.csv("data/filesToStack10023/stackedFiles/hbp_massdata.csv") %>% 
-  filter(grepl("2017", collectDate),
-         plotID %in% plots,
-         dryMass != 0)
 
-#Color palette
+#Soil color palette
 soil_fractions=c("#5C4E19", "#9F8A3B", "#DDD1A3")
 
 
 
 ```
-## Question: *What controls patterns in MAOM content in forest soil?*
 
-## Expectations:
-### 1. Climate and soil characteristics will explain most of the patterns in MAOM content and stability, and these controls vary by site and over large spatial scales. 
-#### - Warmer sites and sites with more clay and iron oxides will have greater concentrations of MAOM. 
-#### - MAOM turnover will be more strongly controlled by mineralogy, with more clay-rich and iron-rich sites having the oldest and most stable MAOM.
-
-#### *Counterpoint: Warmer sites should also have smaller standing nutrient pools, which may lead to more root exudation from trees, or mining by associated fungi, as a way to liberate nutrients from MAOM. This may result in smaller, more dynamic MAOM stocks with relatively short turnover times.*
-
-### 2. Within-site patterns in tree mycorrhizal association will explain a smaller but still important amount of variation in MAOM content and turnover time.
-#### - ECM-dominated plots will have less MAOM than AM-dominated plots
-#### - ECM-dominated plots will have shorter MAOM turnover times than AM-dominated plots (because ECM taxa may be able to liberate mineral-bound SOM)
-
-
-## Introduction
-### Study design: Soils collected in seven forested NEON sites across the Eastern U.S. (Fig 1). At each site, soils were collected within 6-7 plots that spanned a range of AM vs ECM tree dominance:
 
 ```{r map, echo=F, message=F, warning=F, fig.width=11}
 
@@ -609,8 +483,24 @@ ggsave("Fig1.jpg", path="figures/", width= 24, height= 12, units="cm")
 
 <!-- ![fractionated soil sample1](images/IMG_7570.jpg){width=30%}![fractionated soil sample1,  out.extra='angle=90deg' ](images/IMG_0246.jpg){width=30%}![fractionated soil sample1](images/IMG_7568.jpg){width=30%} -->
 
+```{r Site_level_MAOM_C , echo=F}
 
-```{r CN.fractions, echo=F, message=F, warning=F, eval=F}
+ggplot(final_data, aes(x=Site, y=mg.C.per.g.soil_HF))+
+   stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.8, position="dodge")+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.3, position = position_dodge(width = 0.8))+
+  geom_point()+
+  theme_cowplot()
+
+ggplot(final_data, aes(x=Site, y=proportion.C_HF))+
+   stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.8, position="dodge")+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.3, position = position_dodge(width = 0.8))+
+  geom_point()+
+  theme_cowplot()
+
+```
+
+
+```{r CN.fractions, echo=F, message=F, warning=F}
 
 
 ggplot(soil_CN, aes(x=Site, y=C.N, colour=fraction))+
@@ -626,40 +516,7 @@ ggsave("cn.fractions.jpg", path="figures/", width= 21, height= 12, units="cm")
 
 
 
-```{r propC.fractions, echo=F, message=F, warning=F, eval=F, include=F}
-
-ggplot(soil_CN_summary, aes(x=reorder(Site, -MAT), fill=fraction, y=mean.prop.C)) + 
-    geom_bar(position="stack", stat="identity")+
-  scale_fill_manual(name= "Soil Fraction", values=soil_fractions)+
-  labs(x=" ", y="Mean proportion of total C" )+
-  theme_cowplot()+
-  theme(axis.text.x = element_text( angle = 30, hjust=1, vjust=1, size=15), axis.title.y=element_text(size=18))
-ggsave("propC_site.jpg", path="figures/", width= 21, height= 17, units="cm")
-
-
-```
-
-
-```{r climateCproportions, echo=F, message=F, warning=F, eval=F, include=F}
-ggplot(soil_CN, aes(x=field_mean_annual_temperature_C, y=proportion.C, colour=fraction))+
-   geom_smooth(method="lm",size=2, se=F)+
-   geom_point(size=3, alpha=0.5)+
-  labs(x=" Mean Annual Temperature ", y="Proportion C ", colour="Soil Fraction")+
-  scale_colour_manual(values= soil_fractions)+
-  theme_cowplot()+
-  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
-
-ggsave("maom.mat.jpg", path="figures/", width= 14, height= 12, units="cm")
-
-ggplot(final_data, aes(x=CDI, y=plotBA))+
-#   geom_smooth(method="lm",size=2, se=F)+
-   geom_point(size=3, alpha=0.5)
-
-```
-
-
-
-```{r MATTest, echo=F, message=F, warning=F, eval=F, include=F}
+```{r MAT_model, echo=F, message=F, warning=F, eval=F, include=F}
 
 prop.clim.mod=lm(proportion.C~field_mean_annual_temperature_C * fraction +field_mean_annual_precipitation_mm*fraction, data=soil_CN, na.action = na.omit)
 
@@ -750,43 +607,9 @@ ggsave("maom.cdi.conc.jpg", path="figures/", width= 19, height= 16, units="cm")
 
 
 
-```{r Ang_MAOM, echo=F, message=F, warning=F, eval=F}
-
-ggplot(final_data, aes(x=fractionAngiosperm, y=proportion.C_HF, colour=Site))+
-   geom_smooth(method="lm",size=2, se=F)+
-   geom_point(size=3, alpha=0.5)+
-  labs(x=" Angiosperm dominance ", y="MAOM C (proportion)", colour="Site")+
-  theme_cowplot()+
-  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
-
-ggsave("maom.ang.prop.jpg", path="figures/", width= 19, height= 16, units="cm")
-
-ggplot(final_data, aes(x=fractionAngiosperm, y=mg.C.per.g.soil_HF, colour=Site))+
-   geom_smooth(method="lm",size=2, se=F)+
-   geom_point(size=3, alpha=0.5)+
-  labs(x=" Angiosperm dominance ", y="[MAOM C] (mg/g soil)", colour="Site")+
-  theme_cowplot()+
-  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
-
-ggsave("maom.ang.conc.jpg", path="figures/", width= 19, height= 16, units="cm")
-```
 
 
-```{r test , eval=F, echo=F, include=F}
 
-ggplot(final_data, aes(x=Site, y=mg.C.per.g.soil_HF))+
-   stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.8, position="dodge")+
-  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.3, position = position_dodge(width = 0.8))+
-  geom_point()+
-  theme_cowplot()
-
-ggplot(final_data, aes(x=Site, y=proportion.C_HF))+
-   stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.8, position="dodge")+
-  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.3, position = position_dodge(width = 0.8))+
-  geom_point()+
-  theme_cowplot()
-
-```
 
 
 
@@ -872,9 +695,22 @@ ggsave("HF_C_N_by_myc.jpg", path="figures/", width= 20, height= 18, units="cm")
 
 c.mod1=lmer(proportion.C_HF ~ E+CDI+FeOx+ (1|Site),
            data=final_data,na.action = na.omit)
+# summary(c.mod1)
+# coef(c.mod1)$Site
+# ranef(c.mod1)
+# get_variance(c.mod1,
+#   component = c("all"),
+#   verbose = TRUE
+# )
+
+#checking slopes
+summary(lm(proportion.C_HF~ E, data=final_data %>% filter(Site=="ORNL")))
+
+
 #c.mod1=lmer(proportion.C_HF ~ E*field_mean_annual_temperature_C+FeOx+ (1|Site),
           # data=final_data,na.action = na.omit)
 # r.squaredGLMM(c.mod1)
+
 # r=rsquared(c.mod1)
 
 c.mod2=lmer(mg.C.per.g.soil_HF ~  E+CDI+FeOx+ (1|Site),
@@ -1245,106 +1081,9 @@ tab_model(c.n.mod.flf, c.n.mod.olf, c.n.mod.hf, show.se = TRUE, show.std=TRUE, s
 
 ```
 
-```{r cn_bulk, echo=F, message=F, fig.width=11, include=F}
-
-
-#bulk C:N
-
-ctoN.myc.bulk=ggplot(final_data, aes(x=E*100, y=meanCNratio, colour=Site))+
-   geom_smooth(method="lm",size=2, se=F)+
-   geom_point(size=3, alpha=0.5)+
-  labs(x=" % ECM basal area ", y="Bulk soil C:N", colour="Site")+
-  theme_cowplot()+
-  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
-
-ctoN.myc.bulk
-
-c.n.mod.bulk=lmer(meanCNratio ~  E +(1|Site),
-           data=final_data,na.action = na.omit)
-
-tab_model(c.n.mod.bulk, show.se = TRUE, show.ci = FALSE, show.std=TRUE, digits = 3, digits.re = 3)
-
-
-cConc.myc.bulk=ggplot(final_data, aes(x=E*100, y=meanOrganicCarbonPercent, colour=Site))+
-   geom_smooth(method="lm",size=2, se=F)+
-   geom_point(size=3, alpha=0.5)+
-  labs(x=" % ECM basal area ", y="Bulk soil %C", colour="Site")+
-  theme_cowplot()+
-  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
-
-nConc.myc.bulk=ggplot(final_data, aes(x=E*100, y=meanNitrogenPercent, colour=Site))+
-   geom_smooth(method="lm",size=2, se=F)+
-   geom_point(size=3, alpha=0.5)+
-  labs(x=" % ECM basal area ", y="Bulk soil %N", colour="Site")+
-  theme_cowplot()+
-  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
-
-ggarrange(cConc.myc.bulk, nConc.myc.bulk, nrow=1, ncol=2, common.legend=T, legend = "right", labels=c("a", "b"))
-
-
-c.conc.modbulk=lmer(meanOrganicCarbonPercent ~ E   +(1|Site),
-           data=final_data,na.action = na.omit)
-
-n.conc.modbulk=lmer(meanNitrogenPercent ~ E  +(1|Site),
-           data=final_data,na.action = na.omit)
-
-
-tab_model(c.conc.modbulk, n.conc.modbulk, show.se = TRUE, show.std=TRUE, show.ci = FALSE, digits = 3, digits.re = 3)
-
-#Does organic horizon C:N track mycorrhizal dominance? Only have data from BART, HARV, and ORNL:
-o_horiz_CN_myc=lmer(meanCNratio~E+ (1|Site), data=organic_horizon_chem[organic_horizon_chem$Site != "TREE",], na.action=na.omit)
-summary(o_horiz_CN_myc)
-tab_model(o_horiz_CN_myc)
-o_horiz_CN_myc_fig=ggplot(organic_horizon_chem, aes(x=E*100, y=meanCNratio, colour=Site))+
-   geom_smooth(method="lm",size=2, se=F)+
-   geom_point(size=3, alpha=0.5)+
-  labs(x=" % ECM basal area ", y="Organic horizon C:N", colour="Site")+
-  theme_cowplot()+
-  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
-
-
-
-```
-
-```{r basalarea_conc, fig.width=11, echo=F, message=F, warning=F}
-
-c.conc.basalArea=lmer(mg.C.per.g.soil_HF ~ plotBA  +(1|Site),
-           data=final_data,na.action = na.omit)
-
-n.conc.basalArea=lmer(mg.N.per.g.soil_HF ~ plotBA  +(1|Site),
-           data=final_data,na.action = na.omit)
-
-tab_model(c.conc.basalArea, n.conc.basalArea, show.se = TRUE, show.std=TRUE, show.ci = FALSE, digits = 3, digits.re = 3)
-
-
-
-```
-
-
-
-
-
-# Correlations. 
-```{r correlations, echo=F, message=F, warning=F}
-library(corrplot)
-corMat=final_data %>% 
-  select(E, fractionAngiosperm,FeOx, CDI, plotBA)
-
-M=cor(corMat)
-corrplot(M, method="number", type="upper")
-
-
-```
-
-
-
-
-
-# Fraction modern has no relationship with soil, plant, or climate variables but is inherently different on a site-by-site basis. It also has no bearing on the concentration or proportion of MAOM C in the soil. This is interesting because we hypothesized there would be a connection between the concentration of C in the MAOM fraction and the age of that C (bigger pool, more buidling up= older C and smaller pool= more dynamic pool= younger C) but that does not seem to be the case!  :
 ```{r radiocarbon_model, echo=F, message=F, warning=F}
 
-model.14C=lmer(d14C~FeOx+E*CDI+(E|Site),
-            # + (1| Site),
+model.14C=lmer(d14C~FeOx+E+CDI + (1| Site),
              data=final_data,
              na.action = na.omit)
 
@@ -1367,7 +1106,32 @@ model.14C3=lmer(d14C~proportion.C_HF
 
 tab_model(model.14C2, model.14C3, show.se = TRUE, show.ci = FALSE, digits = 2, digits.re = 2, show.std = TRUE)
 
+model.14CDELA=lm(d14C~FeOx+E+CDI,
+             data=final_data[final_data$Site =="DELA",],
+             na.action = na.omit)
 
+model.14CLENO=lm(d14C~FeOx+E+CDI,
+             data=final_data[final_data$Site =="LENO",],
+             na.action = na.omit)
+
+model.14CSERC=lm(d14C~FeOx+E+CDI,
+             data=final_data[final_data$Site =="SERC",],
+             na.action = na.omit)
+
+model.14CHARV=lm(d14C~FeOx+E+CDI,
+             data=final_data[final_data$Site =="HARV",],
+             na.action = na.omit)
+
+model.14CBART=lm(d14C~FeOx+E+CDI,
+             data=final_data[final_data$Site =="BART",],
+             na.action = na.omit)
+
+model.14CTREE=lm(d14C~FeOx+E+CDI,
+             data=final_data[final_data$Site =="TREE",],
+             na.action = na.omit)
+
+
+tab_model(model.14CDELA, model.14CLENO, model.14CSERC, model.14CHARV, model.14CBART, model.14CTREE, show.se = TRUE, show.ci = FALSE, digits = 2, digits.re = 2, show.std = TRUE)
 ```
 
 ```{r radiocarbon_figs, echo=F, warning=F, message=F, fig.width=8}
@@ -1406,277 +1170,11 @@ ggsave("FeOx_vs_d14C.jpg", path="figures/", width= 14, height= 12, units="cm")
 
 
 
-```{r bulk_isotopes, echo=F, message=F, warning=F, eval=F}
-## We do have full data for bulk 13C and 15N in the soil samples that I fractionated. They both seem to (usually) increase with MAOM C and N concentration, and are not affected by ECM dominance.
-ggplot(full_data_with_fractions, aes(x=mg.C.per.g.soil_HF, y=meanorganicd13C, colour=Site.x))+
-   geom_smooth(method="lm",size=2, se=F)+
-   geom_point(size=3, alpha=0.5)+
-  labs(x=" mg C in MAOM per g soil ", y=" d13C")+
-  theme_cowplot()+
-  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
-
-ggplot(full_data_with_fractions, aes(x=mg.N.per.g.soil_HF, y=meand15N, colour=Site.x))+
-   geom_smooth(method="lm",size=2, se=F)+
-   geom_point(size=3, alpha=0.5)+
-  labs(x="mg N in MAOM per g soil ", y="d15N ")+
-  theme_cowplot()+
-  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
-
-ggplot(full_data_with_fractions, aes(x=E*100, y=meanorganicd13C, colour=Site.x))+
-   geom_smooth(method="lm",size=2, se=F)+
-   geom_point(size=3, alpha=0.5)+
-  labs(x=" % ECM basal area ", y=" d13C")+
-  theme_cowplot()+
-  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
-
-ggplot(full_data_with_fractions, aes(x=E*100, y=meand15N, colour=Site.x))+
-   geom_smooth(method="lm",size=2, se=F)+
-   geom_point(size=3, alpha=0.5)+
-  labs(x=" % ECM basal area ", y="d15N ")+
-  theme_cowplot()+
-  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
 
-
-
-```
-
-```{r microbes2, echo=F, message=F, warning=F, eval=F}
-# Finally, the ratio of Fungi to Bactera/Archaea (ITS:16S gene copy number) is not affected by ECM dominance, and is not a good predictor of the proportion of MAOM C in our samples
-
-# ggplot(full_data_with_fractions, aes(x=E*100, y=FB, colour=Site.x))+
-#    geom_smooth(method="lm",size=2, se=F)+
-#    geom_point(size=3, alpha=0.5)+
-#   labs(x=" % ECM basal area ", y="F:B ")+
-#   theme_cowplot()+
-#   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
-
-
-# 
-# ggplot(full_data_with_fractions, aes(x=FB, y=proportion.C_HF, colour=Site.x))+
-#    geom_smooth(method="lm",size=2, se=F)+
-#    geom_point(size=3, alpha=0.5)+
-#   labs(x=" F:B ", y="MAOM C (proportion) ")+
-#   theme_cowplot()+
-#   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
-
-# ggplot(full_data_with_fractions, aes(x=meanCopyNumBactArch, y=proportion.C_HF, colour=Site.x))+
-#    geom_smooth(method="lm",size=2, se=F)+
-#    geom_point(size=3, alpha=0.5)+
-#   labs(x=" Fungal abundance ", y="MAOM C (proportion) ")+
-#   theme_cowplot()+
-#   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
-# 
-# ggplot(full_data_with_fractions[which(full_data_with_fractions$meanTotalLipidConcentration< 140),], aes(x=meanTotalLipidConcentration, y=proportion.C_HF, colour=Site.x))+
-#    geom_smooth(method="lm",size=2, se=F)+
-#    geom_point(size=3, alpha=0.5)+
-#   labs(x=" Microbial biomass ", y="MAOM C (proportion) ")+
-#   theme_cowplot()+
-#   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
-
-# HFC_micBiomass=lme(proportion.C_HF ~ meanTotalLipidConcentration, random=(~1|Site.x), data=full_data_with_fractions,na.action = na.omit)
-# 
-# summary(HFC_micBiomass)
-
-
-  
-```
-
-
-```{r roots_litter_maom, echo=F, message=F, warning=F}
-
-#Testing how root chem, litter chem influence MAOM [C] and [N] patterns at site level
-
-#Litter Chemistry
-
-#zipsByProduct(dpID="DP1.10033.001", site=c("BART",  "TREE", "HARV",  "ORNL", "DELA", "LENO", "SERC"), package="basic", savepath="data/")
-#stackByTable(filepath="~/Documents/Projects/inProgress/MAOM_Postdoc/NEON_soil_data/data/filesToStack10033/", folder=T)
-
-litter_chem=read.csv("data/filesToStack10033/stackedFiles/ltr_litterCarbonNitrogen.csv") %>%
-  select(plotID, nitrogenPercent, carbonPercent, CNratio) %>%
-  separate(plotID, into=c("Site", "plot"), sep="_", remove=F) %>% 
-  group_by(Site) %>%
-  summarise(meanlitterNitrogen=mean(nitrogenPercent[!is.na(nitrogenPercent)]),
-            meanlitterCarbon=mean(carbonPercent[!is.na(carbonPercent)]),
-            meanlitterCNratio=mean(CNratio[!is.na(CNratio)])) 
-
-
-#root data
-#zipsByProduct(dpID="DP1.10066.001", site=c("BART",  "TREE", "HARV",  "ORNL", "DELA", "LENO", "SERC"), package="basic", savepath="data/")
-#stackByTable(filepath="~/Documents/Projects/inProgress/MAOM_Postdoc/NEON_soil_data/data/filesToStack10066/", folder=T)
-
-root_chem=read.csv("data/filesToStack10066/stackedFiles/mpr_carbonNitrogen.csv") %>% 
-  separate(cnSampleID, into=c("Site", "num", "topDepth","Status", "size"), extra="merge") %>% 
-  mutate(topDepth=as.numeric(topDepth)) %>% 
-  filter(topDepth<40) %>% 
-  group_by(Site) %>% 
-  summarise(mean_rootCN=mean(CNratio))
-
-siteMeanMAOM=final_data %>% 
-  select(Site, mg.C.per.g.soil_HF, proportion.C_HF, mg.N.per.g.soil_HF, proportion.N_HF) %>% 
-  group_by(Site) %>% 
-  summarise(mean_maom_c_conc=mean(mg.C.per.g.soil_HF),
-         mean_maom_n_conc=mean(mg.N.per.g.soil_HF),
-         mean_maom_prop_c=mean(proportion.C_HF),
-         mean_maom_prop_n=mean(proportion.N_HF)) %>% 
- left_join(root_chem) %>% 
-           left_join(litter_chem) %>% 
-  rename("Roots"= mean_rootCN, "Leaf litter"="meanlitterCNratio") %>% 
-  pivot_longer(cols=c("Roots", "Leaf litter"), names_to="tissue", values_to="CN") 
-
-siteMeanMAOM_wide=final_data %>% 
-  select(Site, mg.C.per.g.soil_HF, proportion.C_HF, mg.N.per.g.soil_HF, proportion.N_HF) %>% 
-  group_by(Site) %>% 
-  summarise(mean_maom_c_conc=mean(mg.C.per.g.soil_HF),
-         mean_maom_n_conc=mean(mg.N.per.g.soil_HF),
-         mean_maom_prop_c=mean(proportion.C_HF),
-         mean_maom_prop_n=mean(proportion.N_HF)) %>% 
- left_join(root_chem) %>% 
-           left_join(litter_chem) %>% 
-  rename("Roots"= mean_rootCN, "Leaf litter"="meanlitterCNratio") 
-
-MAOM_ROOTS_LITTER_Cconc=ggplot(siteMeanMAOM, aes(x=mean_maom_c_conc, y=CN), group=tissue)+
-  geom_smooth( method="lm", aes(color=tissue))+
-  geom_point( alpha=0.5, aes(color=tissue))+
-  scale_color_manual(values=c("darkolivegreen4", "brown"))+
-  theme_cowplot()+
-  labs(x="MAOM [C] (mg/g soil)", y="Mean C:N")
-
-MAOM_ROOTS_LITTER_Nconc=ggplot(siteMeanMAOM, aes(x=mean_maom_n_conc, y=CN), group=tissue)+
-   geom_smooth( method="lm", aes(color=tissue))+
-  geom_point( alpha=0.5, aes(color=tissue))+
-  scale_color_manual(values=c("darkolivegreen4", "brown"))+
-  theme_cowplot()+
-  labs(x="MAOM [N] (mg/g soil)", y="Mean C:N")
-
-MAOM_ROOTS_LITTER_Cprop=ggplot(siteMeanMAOM, aes(x=mean_maom_prop_c, y=CN), group=tissue)+
-   geom_smooth( method="lm", aes(color=tissue))+
-  geom_point( alpha=0.5, aes(color=tissue))+
-  scale_color_manual(values=c("darkolivegreen4", "brown"))+
-  theme_cowplot()+
-  labs(x="f(MAOM) C", y="Mean C:N")
-
-MAOM_ROOTS_LITTER_Nprop=ggplot(siteMeanMAOM, aes(x=mean_maom_prop_n, y=CN), group=tissue)+
-   geom_smooth( method="lm", aes(color=tissue))+
-  geom_point( alpha=0.5, aes(color=tissue))+
-  scale_color_manual(values=c("darkolivegreen4", "brown"))+
-  theme_cowplot()+
-  labs(x="f(MAOM) N", y="Mean C:N")
-
-roots_leaves_maom=ggarrange(MAOM_ROOTS_LITTER_Cconc, MAOM_ROOTS_LITTER_Cprop, MAOM_ROOTS_LITTER_Nconc, MAOM_ROOTS_LITTER_Nprop, nrow=2, ncol=2, common.legend = T, legend="right")
-ggsave("roots_leaves_maom.jpg", path="figures/", width= 16, height= 12, units="cm")
-
-
-# summary(lm(mean_maom_c_conc ~ `Leaf litter`, data=siteMeanMAOM_wide))
-# summary(lm(mean_maom_n_conc ~ `Leaf litter`, data=siteMeanMAOM_wide))
-# summary(lm(mean_maom_prop_c ~ `Leaf litter`, data=siteMeanMAOM_wide))
-# summary(lm(mean_maom_prop_n ~ `Leaf litter`, data=siteMeanMAOM_wide))
-```
-
-
-```{r neon_ecm_v_litter, echo=F}
-
-
-plot_trees_all=plot_trees_a %>% 
-  filter(speciesDominance>5) %>% 
-  dplyr::group_by(plotID, mycType) %>% 
-  mutate(totalBAbyMyc=sum(sumBA)) %>% 
-  dplyr::summarise(myc.dominance=(totalBAbyMyc/totalBAbyPlot), plotBA=mean(totalBAbyPlot)) %>%
-  separate(plotID, into=c("Site", "Plot"), sep="_", remove=F) %>%
-  distinct() %>% 
-  pivot_wider(values_from=myc.dominance, names_from=mycType) %>%
-  replace_na(list(E=0, A=0, B=0, ER=0)) 
-
-
-litter_chem_plots=read.csv("data/filesToStack10033/stackedFiles/ltr_litterCarbonNitrogen.csv") %>%
-  select(plotID, nitrogenPercent, carbonPercent, CNratio) %>% 
-  drop_na(CNratio) %>% 
-  left_join(plot_trees_all, (by="plotID"))%>% 
-  drop_na() %>% 
-  separate(plotID, into=c("Site", "plot"), sep="_")
-
-ggplot(litter_chem_plots, aes(x=E*100, y=CNratio, color=Site))+
-         geom_smooth(method="lm", size=2,se=F)+
-   geom_point(size=3, alpha=0.5)+
-  labs(x=" ECM dominance ", y="Aboveground litter C:N", colour="Site")+
-  theme_cowplot()+
-  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
-ggsave("litter.chem.ecm.tiff", path="figures/", width= 16, height= 12, units="cm")
-
-litter_chem_ecm=lmer(CNratio~E+(1|Site),
-           data=litter_chem_plots,na.action = na.omit)
-  tab_model(litter_chem_ecm, show.std=TRUE, show.se = TRUE, show.ci = FALSE, digits = 3, digits.re = 3)
-
-
-
-```
-
-```{r destabilization_oxalic_calculations, echo=F, include=F}
-
-#Calculating amount of oxalic acid needed to add to equal 40% of the estimated microbial biomass C in each sample
-#Microbial biomass C estimated at 2.5% of the C in the MAOM + sand mixture (as in Jilling et al, 2021)
-
-#need data on the mg C per g MAOM:
-MAOM_C_conc=read.csv("SOM_Fractions_CN.csv") %>% 
-  separate(Sample.ID, into=c("Site", "Plot", "fraction")) %>% 
-  mutate(Site = str_replace(Site, "ORLN", "ORNL")) %>% 
-  filter(Site != "STANDARD",
-          fraction == "HF") %>% 
-   select(-Count) %>% 
-  unite(col="Sample.ID",c(Site, Plot), sep="_") %>% 
-  rename(pct.C.soil=pct.C, pct.N.soil=pct.N) %>% 
-  left_join(HF_mass) %>% 
-  separate(Sample.ID, into=c("Site", "Plot")) %>% 
-  arrange(Site) %>% 
-  rename(fraction_mass=HF.mass..mg.) %>% 
-  mutate(mg.C.per.g.MAOM=(pct.C.soil/100)*1000) %>% 
-  mutate(mg.micbmass.C.per.g.MAOM=.025*mg.C.per.g.MAOM) %>% 
-  mutate(mg.ox.acid.C.needed=0.4*mg.micbmass.C.per.g.MAOM) %>% 
-  mutate(mg.ox.acid.needed.anhydrous=(1/(24.022/90.034))*mg.ox.acid.C.needed) %>% 
-  mutate(mg.ox.acid.needed.dihydrate=(1/(24.022/126.065))*mg.ox.acid.C.needed)
-
-total.oxalic=MAOM_C_conc %>% 
-  summarise(total.oxalic.mass.mg=sum(mg.ox.acid.needed.dihydrate))
-
-#So how much oxalic acid powder does this mean we need to make these solutions...
-#90.034 g·mol−1 (anhydrous)
-#126.065 g·mol−1 (dihydrate)
-
-#The C is what proportion of those molar masses?
- 24.022/90.034 
- #0.267
-
- #What is this application rate per gram of MAOM+sand?
- 
- 
-oxacid=ggplot(MAOM_C_conc, aes(x=Site, y=mg.ox.acid.C.needed))+
-   stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.8, position="dodge")+
-  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.3, position = position_dodge(width = 0.8))+
-  labs(y="mg Oxalic Acid C needed")+
-  geom_point(alpha=0.5)+
-  theme_cowplot()
-oxacid
-
-
-
-
-```
-
-```{r DataNugget}
-
-Nugget_Data=final_data %>% 
-  select(Site, field_mean_annual_temperature_C, field_mean_annual_precipitation_mm, proportion.C_HF) %>% 
-  group_by(Site) %>% 
-  summarize(MAT=mean(field_mean_annual_temperature_C),
-            MAP=mean(field_mean_annual_precipitation_mm),
-            mean_pct.C.MAOM=(mean(proportion.C_HF))*100,
-            sd.pct.C.MAOM=sd(proportion.C_HF)*100)
-
-
-```
 
 ```{r species-figure}
-#Trying to make a figure for each site where the plots are in order of MAOM N concentration and the top three genera in each plot are labels on the dots
+#Figure for each site where the plots are in order of MAOM N concentration and the top three genera in each plot are labels on the dots
 
 ggplot(final_data_tree_spp, aes(x=E, y=mg.N.per.g.soil_HF))+
   geom_point(color="blue")+
@@ -1691,7 +1189,7 @@ ggsave("top_species_MAOM_N_conc.jpg", path="figures/", width= 40, height= 36, un
 ```
 
 
-```{r plotPercentAngiosperms_figure}
+```{r Angiosperm_effects}
 
 ecm_order=received_samples_plot %>% 
   select(plotID, order) %>% 
@@ -1724,17 +1222,46 @@ BAbyMYC=ggplot(final_data %>%
 
 ggsave("BAmyc.jpg", path="figures/", width= 20, height= 16, units="cm")
 
+
+ggplot(final_data, aes(x=fractionAngiosperm, y=proportion.C_HF, colour=Site))+
+   geom_smooth(method="lm",size=2, se=F)+
+   geom_point(size=3, alpha=0.5)+
+  labs(x=" Angiosperm dominance ", y="MAOM C (proportion)", colour="Site")+
+  theme_cowplot()+
+  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
+
+ggsave("maom.ang.prop.jpg", path="figures/", width= 19, height= 16, units="cm")
+
+ggplot(final_data, aes(x=fractionAngiosperm, y=mg.C.per.g.soil_HF, colour=Site))+
+   geom_smooth(method="lm",size=2, se=F)+
+   geom_point(size=3, alpha=0.5)+
+  labs(x=" Angiosperm dominance ", y="[MAOM C] (mg/g soil)", colour="Site")+
+  theme_cowplot()+
+  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
+
+ggsave("maom.ang.conc.jpg", path="figures/", width= 19, height= 16, units="cm")
+
 ```
 
+```{r Basal_Area_effects, fig.width=11, echo=F, message=F, warning=F}
 
-```{r climate_BA_Fe}
+c.conc.basalArea=lmer(mg.C.per.g.soil_HF ~ plotBA  +(1|Site),
+           data=final_data,na.action = na.omit)
+
+n.conc.basalArea=lmer(mg.N.per.g.soil_HF ~ plotBA  +(1|Site),
+           data=final_data,na.action = na.omit)
+
+tab_model(c.conc.basalArea, n.conc.basalArea, show.se = TRUE, show.std=TRUE, show.ci = FALSE, digits = 3, digits.re = 3)
+
+```
+
+```{r Climate_effects}
 #Relationships between site-level climate decomposition index (CDI) and a) soil oxalate-extractable iron content, and b) total tree basal area in our study plots.
 
 basal_area_cdi=ggplot(final_data, aes(x=CDI, y=plotBA))+
    geom_point()+
   stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.0009, position="dodge")+
   stat_summary(fun.data = mean_se, geom = "errorbar", width=0.0005, position = position_dodge(width = 0.0009))+
-  geom_smooth(method="lm")+
                 theme_cowplot()+
   xlab("Climate Decomposition Index")+
   ylab("Total Basal Area"
@@ -1752,7 +1279,7 @@ feox_cdi=ggplot(final_data, aes(x=CDI, y=FeOx))+
   )
 
 ggarrange(basal_area_cdi, feox_cdi, ncol=2, nrow=1, labels= c("a","b"), legend=F)
-ggsave("FigS2.jpg", path="figures/", width= 24, height= 12, units="cm")
+ggsave("FigS2.pdf", path="figures/", width= 24, height= 12, units="cm")
 
 
 summary(lm(FeOx~CDI,data=final_data )) #yes, more FeOx in warmer sites
@@ -1762,8 +1289,56 @@ summary(lm(mg.C.per.g.soil_HF~FeOx,data=final_data %>% filter(Site=="DELA") ))  
 summary(lm(FeOx~E,data=final_data )) #no overall trend with FeOx and ECM dominance across sites
 summary(lm(FeOx~E,data=final_data %>% filter(Site=="LENO") )) # yes within LENO positive relationship between soil FeOx and ECM dominance
 summary(lm(FeOx~E,data=final_data %>% filter(Site=="DELA") )) # not at all within DELA 
+
+#Site means of MAOM C and N concentrations and proportions, ordered by climate decomposition index
+
+MAOM_C_conc_cdi=ggplot(final_data, aes(x=CDI, y=mg.C.per.g.soil_HF))+
+   geom_point()+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.0009, position="dodge")+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.0005, position = position_dodge(width = 0.0009))+
+  geom_smooth(method="lm")+
+                theme_cowplot()+
+  xlab("Climate Decomposition Index")+
+  ylab("[MAOM C] (mg/g soil)"
+  )
+
+MAOM_C_prop_cdi=ggplot(final_data, aes(x=CDI, y=proportion.C_HF))+
+   geom_point()+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.0009, position="dodge")+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.0005, position = position_dodge(width = 0.0009))+
+  theme_cowplot()+
+  xlab("Climate Decomposition Index")+
+  ylab(expression("proportion C"[MAOM])
+  )
+
+MAOM_N_conc_cdi=ggplot(final_data, aes(x=CDI, y=mg.N.per.g.soil_HF))+
+   geom_point()+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.0009, position="dodge")+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.0005, position = position_dodge(width = 0.0009))+
+  theme_cowplot()+
+  xlab("Climate Decomposition Index")+
+  ylab("[MAOM N] (mg/g soil)"
+  )
+
+MAOM_N_prop_cdi=ggplot(final_data, aes(x=CDI, y=proportion.N_HF))+
+   geom_point()+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.0009, position="dodge")+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.0005, position = position_dodge(width = 0.0009))+
+  geom_smooth(method="lm")+
+                theme_cowplot()+
+  xlab("Climate Decomposition Index")+
+  ylab(expression("proportion N"[MAOM])
+  )
+
+ggarrange(MAOM_C_conc_cdi, MAOM_C_prop_cdi, MAOM_N_conc_cdi, MAOM_N_prop_cdi, ncol=2, nrow=2, labels= c("a","b", "c", "d"), legend=F)
+ggsave("FigXXX.jpg", path="figures/", width= 24, height= 22, units="cm")
+
 ```
-```{r feox ecm}
+
+```{r Iron_ECM}
+
+#Is the amount of oxalate-extractable iron in soil related to mycorrhizal type?
+
 ggplot(final_data, aes(x=E, y=FeOx))+
   geom_point(color="blue")+
   geom_smooth(method="lm", color="blue")+
@@ -1774,13 +1349,4 @@ ggsave("ECM_vs_FeOx.jpg", path="figures/", width= 30, height= 24, units="cm")
 
 ```
 
-```{r random}
-ggplot(final_data, aes(x=field_mean_annual_precipitation_mm, y=C.N_HF, colour=Site))+
-   geom_smooth(method="lm",size=2, se=F)+
-   geom_point(size=3, alpha=0.5)+
-  theme_cowplot()+
-  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
-
-ggsave("maom_cn_precip.jpg", path="figures/", width= 19, height= 16, units="cm")
-
-```
+`
