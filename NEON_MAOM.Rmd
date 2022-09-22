@@ -5,10 +5,9 @@ output:
   html_document: default
   pdf_document: default
   word_document: default
-date: "11/2021"
 ---
 
-```{r setup, include=FALSE}
+```{r packages, include=FALSE}
 library(tidyverse)
 library(cowplot)
 library(ggmap)
@@ -27,7 +26,9 @@ library(WorldFlora)
 library(viridis)
 data(vascular.families)
  library(MuMIn)
+```
 
+```{r setup, include=F}
 #Identify study sites
 forests=c("BART","DELA","HARV","ORNL","TREE","LENO", "SERC")
 
@@ -155,8 +156,8 @@ soil_CN=read.csv("SOM_Fractions_Lab_Notebook.csv") %>%
          proportion.N= mg.N/Total.N) %>% 
   left_join(site_clim, by="Site") %>% 
   left_join(CDI, by="Site") %>% 
-  unite(col="plotID",c(Site, Plot), sep="_", remove=F) %>% 
-  filter(plotID != "DELA_037") 
+  unite(col="plotID",c(Site, Plot), sep="_", remove=F) 
+#%>% filter(plotID != "DELA_037") 
 
   
 soil_CN$fraction=factor(soil_CN$fraction, levels=c("FLF", "OLF", "HF"))
@@ -393,7 +394,7 @@ neon_full_data= periodic_soil_chem %>%  #periodic characterization
    left_join(plot_trees, by="plotID")
  
  measured_Fe_Ox=read.csv("NEON_FeOx.csv") %>% 
-   rename(FeOx=Fe....) %>% 
+   rename(FeOx=Fe.mg.g) %>% 
    mutate(plotID=str_sub(Sample.ID, 6, -2)) %>% 
    mutate(plotID=sub("-", "_", plotID)) %>% 
    select(-Sample.ID)
@@ -404,10 +405,11 @@ left_join(radiocarbon, by="plotID") %>%
   left_join(plotPctAngio, by="plotID") %>% 
   left_join(plot_trees%>% dplyr::select(-Site, -Plot), by="plotID") %>% 
   arrange(plotID) %>% 
- filter(proportion.C_HF > 0.5) %>% #removed an outlier with crazy big POM fraction
+# filter(proportion.C_HF > 0.5) %>% #removed an outlier with crazy big POM fraction
   rename(Site=Site.x) %>% 
   left_join(measured_Fe_Ox, by="plotID") %>% 
 left_join( periodic_soil_chem, by="plotID") 
+
 
 final_data_tree_spp=final_data %>% 
     arrange(Site, mg.N.per.g.soil_HF) %>%
@@ -424,6 +426,40 @@ soil_fractions=c("#5C4E19", "#9F8A3B", "#DDD1A3")
 
 ```
 
+```{r outliers}
+#Assessing potential influence of unusual values in final data set
+
+hist(final_data$mg.C.per.g.soil_FLF) #very high concentration of FLF C in one sample
+hist(final_data$mg.C.per.g.soil_OLF)
+hist(final_data$mg.C.per.g.soil_HF)
+
+hist(final_data$mg.N.per.g.soil_FLF) #very high concentration of FLF N in one sample
+hist(final_data$mg.N.per.g.soil_OLF)
+hist(final_data$mg.N.per.g.soil_HF)
+
+
+hist(final_data$proportion.C_FLF) 
+hist(final_data$proportion.C_OLF)
+hist(final_data$proportion.C_HF)
+
+hist(final_data$proportion.N_FLF) 
+hist(final_data$proportion.N_OLF)
+hist(final_data$proportion.N_HF)
+
+#removing HARV_037 from final dataset
+
+mean_FLF_conc.C=mean(final_data$mg.C.per.g.soil_FLF) #2.09
+std_dev_FLF_conc.C=sd(final_data$mg.C.per.g.soil_FLF) #1.98
+#HARV_037 is 47.33, greater than 20 standard deviations above mean
+
+mean_FLF_conc.N=mean(final_data$mg.N.per.g.soil_FLF) #0.106
+std_dev_FLF_conc.N=sd(final_data$mg.N.per.g.soil_FLF) #0.205
+#HARV_037 has 1.42 mg FLF N per g soil, greater than 6 standard deviations above mean
+
+final_data=final_data %>% 
+  filter(plotID != "HARV_037")
+
+```
 
 ```{r map, echo=F, message=F, warning=F, fig.width=11}
 
@@ -600,11 +636,21 @@ c.mod4=lmer(mg.C.per.g.soil_OLF ~  E+CDI+FeOx +(1|Site),
 n.mod3=lmer(proportion.N_OLF ~  E*CDI+FeOx +(1|Site),
            data=final_data,na.action = na.omit)
 
-n.mod4=lmer(mg.N.per.g.soil_OLF ~  E*CDI+FeOx +(1|Site),
+n.mod4=lmer(mg.N.per.g.soil_OLF ~  E+CDI+FeOx +(1|Site),
            data=final_data,na.action = na.omit)
 
-tab_model(c.mod3, c.mod4,  show.se = TRUE, show.std=TRUE, show.ci = FALSE, digits = 3, digits.re = 3,show.df=TRUE)
-tab_model( n.mod3, n.mod4, show.se = TRUE, show.std=TRUE, show.ci = FALSE, digits = 3, digits.re = 3)
+#Tab model aesthetics
+pl <- c(
+  `(Intercept)` = "Intercept",
+  E = "Mycorrhizal dominance",
+  CDI = "CDI", 
+  FeOx = "FeOx",
+  `E:CDI`= "Mycorrhizal dominance * CDI"
+)
+
+tab_model(c.mod3, c.mod4,n.mod3, n.mod4,  show.se = TRUE, show.ci = FALSE, digits = 2, digits.re = 2,pred.labels = pl, 
+  dv.labels = c("proportion oPOM C", "[oPOM C]", "proportion oPOM N", "[oPOM N]"), show.df=TRUE, show.std=T)
+# tab_model( n.mod3, n.mod4, show.se = TRUE, show.std=TRUE, show.ci = FALSE, digits = 3, digits.re = 3)
 ```
 
 
@@ -805,7 +851,7 @@ concC.fe.hf=ggplot(final_data, aes(x=FeOx, y=mg.C.per.g.soil_HF, color=Site))+
    geom_smooth(method="lm",size=2, se=F)+
   geom_point()+
    scale_colour_viridis_d()+
-  labs(x=" % FeOx ", y="[MAOM C] (mg/g soil)", colour="Site")+
+  labs(x=" FeOx (mg/g soil)", y="[MAOM C] (mg/g soil)", colour="Site")+
   theme_cowplot()+
   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
@@ -813,7 +859,7 @@ propC.fe.hf=ggplot(final_data, aes(x=FeOx, y=proportion.C_HF, color=Site))+
    geom_smooth(method="lm",size=2, se=F)+
   geom_point()+
    scale_colour_viridis_d()+
-  labs(x=" % FeOx ", y=expression("proportion C"[MAOM]), colour="Site")+
+  labs(x=" FeOx (mg/g soil)", y=expression("proportion C"[MAOM]), colour="Site")+
   theme_cowplot()+
   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
@@ -822,12 +868,12 @@ concN.fe.hf=ggplot(final_data, aes(x=FeOx, y=mg.N.per.g.soil_HF, color=Site))+
    geom_smooth(method="lm",size=2, se=F)+
   geom_point()+
    scale_colour_viridis_d()+
-  labs(x=" % FeOx ", y="[MAOM N] (mg/g soil)", colour="Site")+
+  labs(x=" FeOx (mg/g soil)", y="[MAOM N] (mg/g soil)", colour="Site")+
   theme_cowplot()+
   theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
-ggarrange( propC.fe.hf,concC.fe.hf, nrow=1, ncol=2, common.legend=T, legend="right")
-ggsave("hf.conc.prop.fe.pdf",path="figures/", width= 20, height= 10, units="cm")
+ggarrange(concC.fe.hf,concN.fe.hf, nrow=1, ncol=2, common.legend=T, legend="right")
+ggsave("hf.conc.CN.fe.pdf",path="figures/", width= 20, height= 10, units="cm")
 
 #what are the slopes of these lines?
 fe_conchf_slopes_C=coef(lmList(mg.C.per.g.soil_HF~FeOx|Site , data = final_data))[2]
