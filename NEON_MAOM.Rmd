@@ -950,7 +950,7 @@ ggplot(final_data[final_data$Site!= "ORNL",], aes(x=Site, y=d14C))+
    stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.8, position="dodge")+
   stat_summary(fun.data = mean_se, geom = "errorbar", width=0.3, position = position_dodge(width = 0.8))+
   geom_hline(yintercept=0, linetype="dashed")+
-  labs(y=expression(MAOM~delta^14*C))+
+  labs(y=expression(MAOM~Delta^14*C))+
   scale_x_discrete(limits=c("TREE", "BART", "HARV", "SERC", "DELA", "LENO"))+
   geom_point()+
   theme_cowplot()
@@ -961,18 +961,18 @@ radiocarbon.by.ECM=ggplot(final_data[final_data$Site!= "ORNL",], aes(x=E*100, y=
   geom_point()+
   geom_smooth(method="lm", se=T, linetype="dashed", alpha=0.2)+
   scale_color_viridis_d()+
-  labs(x="Ectomycorrhizal tree dominance (%)", y=expression(MAOM~delta^14*C))+
+  labs(x="Ectomycorrhizal tree dominance (%)", y=expression(MAOM~Delta^14*C))+
   theme_cowplot()
 
 radiocarbon.by.FeOx=ggplot(final_data[final_data$Site!= "ORNL",], aes(x=FeOx, y=d14C, color=Site))+
   geom_point()+
   geom_smooth(method="lm", se=T, linetype="dashed", alpha=0.2)+
   scale_color_viridis_d()+
-  labs(x="Oxalate Extractable Iron Content (%)", y=expression(MAOM~delta^14*C))+
+  labs(x="Oxalate Extractable Iron Content (%)", y=expression(MAOM~Delta^14*C))+
   theme_cowplot()
 
 ggarrange(radiocarbon.by.ECM, radiocarbon.by.FeOx, ncol=2, nrow=1, labels= c("a","b"), common.legend=T,legend="right")
-ggsave("radiocarbon.by.ECM.FeOx.jpg", path="figures/", width= 24, height= 12, units="cm")
+ggsave("radiocarbon.by.ECM.FeOx.pdf", path="figures/", width= 24, height= 12, units="cm")
 
 ```
 
@@ -1198,6 +1198,14 @@ c.n.mod.hf=lmer(C.N_HF ~  E*CDI+FeOx  +(1|Site),
 tab_model(c.n.mod.flf, c.n.mod.olf, c.n.mod.hf, show.se = TRUE, show.std=TRUE, show.ci = FALSE, digits = 3, digits.re = 3)
 
 
+ctoN.cdi.hf=ggplot(final_data, aes(x=CDI, y=C.N_HF))+
+   geom_smooth(method="lm",size=2, se=F)+
+   geom_point(size=3, alpha=0.5)+
+  labs(x=" Climate Decomposition Index ", y="MAOM C:N")+
+  theme_cowplot()+
+  scale_color_viridis_d()+
+  theme(legend.title=element_text(hjust=0.5, size=16), legend.text=element_text(size=15), axis.text=element_text(size=15), axis.title=element_text(size=19))
 
+ggsave("maom.cn.cdi.pdf",path="figures/", width= 14, height= 12, units="cm")
 ```
 `
