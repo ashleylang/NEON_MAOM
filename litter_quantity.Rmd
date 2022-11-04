@@ -1,0 +1,113 @@
+---
+title: Does litter quantity vary with AM and ECM dominance in NEON plots?
+
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(tidyverse)
+library(cowplot)
+library(sjPlot)
+
+#read in NEON litter data from our 7 forests
+
+#zipsByProduct(dpID="DP1.10033.001", site=c("BART",  "TREE", "HARV",  "ORNL", "DELA", "LENO", "SERC"), package="basic", savepath="tree_litter_data/")  
+#stackByTable(filepath="tree_litter_data/filesToStack10033/", folder=T)
+
+litter_mass=read.csv("tree_litter_data/filesToStack10033/stackedFiles/ltr_massdata.csv") %>% 
+  filter(functionalGroup=="Leaves" | functionalGroup == "Needles") %>% 
+  group_by(plotID, collectDate) %>% 
+  summarise(leaf_litter_mass=sum(dryMass)) %>%  #sum of dry mass from each plot on each collection date 
+  separate(collectDate, into=c("year", "month", "day"), sep="-") %>% 
+  group_by(plotID, year) %>% 
+  summarise(annual_litterfall_mass=sum(leaf_litter_mass)) %>% 
+  filter(year != "2018" & year != "2020" &year != "2021" &year != "2022") %>% 
+  drop_na() %>% 
+  filter(annual_litterfall_mass>0) %>% 
+  separate(plotID, into=c("Site", "plot"), sep="_") %>% 
+  unite(plotID, c(Site, plot), remove=F) %>% 
+  group_by(Site,plotID) %>% 
+  summarise(mean_annual_litterfall=mean(annual_litterfall_mass)) %>% 
+  filter(mean_annual_litterfall > 10) #need to remove an unusually litterless plot in SERC (filtering to remove plots w/ less than 10g)
+
+#checking data dont look nuts
+ggplot(litter_mass, aes(x=plotID, y=mean_annual_litterfall))+
+  geom_bar( stat="identity", colour="black")+
+  xlab("plotID")+
+  ylab("Mean annual litterfall mass")+
+  facet_wrap(~Site, scales="free_x")+ #did this before and after averaging the years; with both years and site, use facet_grid
+  theme_cowplot()
+  
+#make a plot ID vector
+litter_plots=litter_mass$plotID
+
+#bring in the tree species and DBH data from the same plots where the litter data is from:
+
+#   zipsByProduct(dpID="DP1.10098.001", site=c("BART",  "TREE", "HARV",  "ORNL", "DELA", "LENO", "SERC"), package="basic", savepath="tree_litter_data/")  
+#   stackByTable(filepath="tree_litter_data/filesToStack10098/", folder=T)
+
+recent_years=c("vst_BART_2019", "vst_HARV_2018", "vst_TREE_2018",  "vst_ORNL_2017", "vst_DELA_2017", "vst_LENO_2018",  "vst_SERC_2018")
+
+species_names=read.csv("tree_litter_data/filesToStack10098/stackedFiles/vst_mappingandtagging.csv") %>% 
+   dplyr::select(individualID, taxonID, scientificName)
+
+#read in mycorrhizal associations dataset
+myc=read.csv("myc_associations.csv") %>% 
+  dplyr::rename(taxonID=unique.plot_trees.taxonID.) %>% 
+  dplyr::select(taxonID, mycType) 
+
+#Add species and mycorrhizal type data to tree data for each plot, calculate relative AM and ECM basal area
+plot_trees=read.csv("tree_litter_data/filesToStack10098/stackedFiles/vst_apparentindividual.csv") %>% 
+  dplyr::filter(eventID %in% recent_years) %>% 
+  dplyr::select(siteID, plotID, individualID, plantStatus, stemDiameter) %>% 
+  left_join(species_names, by="individualID") %>%  #added tree species
+  filter(grepl("Live", plantStatus)) %>% 
+  filter(!is.na(stemDiameter)) %>% 
+  mutate(BA=(pi*((stemDiameter/100)/2)^2)) %>% #square meters per plot
+  dplyr::group_by(siteID,plotID, taxonID, scientificName) %>% 
+  dplyr::summarise(sumBA=sum(BA)) %>% 
+  left_join(myc, by="taxonID") %>%  #adding mycorrhizal type of trees
+   na_if("") %>%
+  drop_na() %>% 
+  dplyr::group_by(plotID) %>% 
+  mutate(totalBAbyPlot=sum(sumBA)) %>%
+  mutate(speciesDominance=(sumBA/totalBAbyPlot)*100) %>% 
+   dplyr::group_by(plotID, mycType) %>% 
+  mutate(totalBAbyMyc=sum(sumBA)) %>% 
+  dplyr::summarise(myc.dominance=(totalBAbyMyc/totalBAbyPlot), plotBA=mean(totalBAbyPlot)) %>%
+  separate(plotID, into=c("Site", "Plot"), sep="_", remove=F) %>%
+  distinct() %>% 
+  pivot_wider(values_from=myc.dominance, names_from=mycType) %>% 
+  replace_na(list(E=0, A=0, B=0, ER=0)) %>% 
+  left_join(litter_mass, by=c("Site", "plotID")) %>% #adding litter mass
+drop_na()
+
+
+```
+
+
+```{r litter_mass_myc_type, echo=F, message=F, warning=F}
+
+myc_types_litter_mass=ggplot(plot_trees, aes(x=E, y=mean_annual_litterfall, color=Site, linetype=Site))+
+  geom_smooth(method="lm", se=F)+
+  scale_linetype_manual(values=c("TREE"= "solid", "BART"="solid", "HARV"="dashed", "SERC"="dashed", "ORNL"="dashed", "DELA"="dashed", "LENO"="dashed"))+
+  scale_color_viridis_d(option="C")+
+  geom_point(size=3)+
+  labs(x="% ECM tree basal area", y=bquote('Mean Annual Litterfall'~(g~'0.5'~m^-2)))+
+  guides(linetype="none")+
+  theme_cowplot()
+
+ggsave("myc_types_litter_mass.pdf", path="figures/", width= 14, height= 12, units="cm")
+
+litter_mod_BART=lm(mean_annual_litterfall~E, data=plot_trees %>% filter(Site=="BART"))
+litter_mod_HARV=lm(mean_annual_litterfall~E, data=plot_trees %>% filter(Site=="HARV"))
+litter_mod_TREE=lm(mean_annual_litterfall~E, data=plot_trees %>% filter(Site=="TREE"))
+litter_mod_SERC=lm(mean_annual_litterfall~E, data=plot_trees %>% filter(Site=="SERC"))
+litter_mod_ORNL=lm(mean_annual_litterfall~E, data=plot_trees %>% filter(Site=="ORNL"))
+litter_mod_DELA=lm(mean_annual_litterfall~E, data=plot_trees %>% filter(Site=="DELA"))
+litter_mod_LENO=lm(mean_annual_litterfall~E, data=plot_trees %>% filter(Site=="LENO"))
+
+tab_model(litter_mod_BART, litter_mod_HARV, litter_mod_TREE, litter_mod_SERC, litter_mod_ORNL, litter_mod_DELA, litter_mod_LENO, show.se = TRUE, show.ci = FALSE, digits = 2, digits.re = 2, show.std = TRUE)
+```
+
