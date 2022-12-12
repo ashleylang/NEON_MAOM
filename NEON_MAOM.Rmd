@@ -355,6 +355,7 @@ soil_biogeochem=read.csv("data/filesToStack10047/stackedFiles/spc_biogeochem.csv
   select(siteID, plotID, collectDate, horizonName,biogeoSampleType, biogeoTopDepth, biogeoBottomDepth, biogeoCenterDepth, caNh4d, mgNh4d, naNh4d, cecdNh4, alSatCecd33, baseSumCecd10, alKcl, feKcl, mnKcl, phCacl2, phH2o, carbonTot, nitrogenTot, ctonRatio, estimatedOC, sulfurTot, alOxalate, feOxalate, mnOxalate, pOxalate, siOxalate, feCitDithionate, waterRetention15Bar) %>% 
   group_by(plotID) %>% 
   summarise(meansoilFeOx=mean(feOxalate),
+            meanpH=mean(phH2o)
             ) %>% 
   arrange(plotID) %>% 
   filter(plotID %in% plots) %>% 
@@ -1107,7 +1108,7 @@ pctAngio=ggplot(plotPctAngio %>%
   theme_cowplot()+
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),strip.background = element_rect( fill="white"),legend.title=element_blank())
 
-ggsave("pctAngioGymno.jpg", path="figures/", width= 20, height= 16, units="cm")
+ggsave("pctAngioGymno.pdf", path="figures/", width= 20, height= 16, units="cm")
 
 BAbyMYC=ggplot(final_data %>% 
                  left_join(ecm_order), aes(x=order, y=plotBA))+
@@ -1251,6 +1252,10 @@ ggplot(final_data, aes(x=CDI, y=FeOx))+
   theme_cowplot()
 
 ggsave("CDI_vs_FeOx.pdf", path="figures/", width= 30, height= 24, units="cm")
+
+#using neon_full_data to plot % AM and pH at LENO
+LENO_plot=ggplot(data=neon_full_data %>% filter(Site=="LENO"), aes(x=A, y=pH))+
+  
 
 ```
 
