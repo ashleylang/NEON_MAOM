@@ -99,7 +99,7 @@ myc_types_litter_mass=ggplot(plot_trees, aes(x=E*100, y=mean_annual_litterfall, 
   guides(linetype="none")+
   theme_cowplot()
 
-ggsave("myc_types_litter_mass.pdf", path="figures/", width= 14, height= 12, units="cm")
+ggsave("Figure_S2.pdf", path="figures/", dpi=600,width= 14, height= 12, units="cm")
 
 litter_mod_BART=lm(mean_annual_litterfall~E, data=plot_trees %>% filter(Site=="BART"))
 litter_mod_HARV=lm(mean_annual_litterfall~E, data=plot_trees %>% filter(Site=="HARV"))
