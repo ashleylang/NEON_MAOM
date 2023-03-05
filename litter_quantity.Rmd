@@ -83,13 +83,14 @@ plot_trees=read.csv("tree_litter_data/filesToStack10098/stackedFiles/vst_apparen
   left_join(litter_mass, by=c("Site", "plotID")) %>% #adding litter mass
 drop_na()
 
+plot_trees$Site <- factor(plot_trees$Site, levels=c('TREE', 'BART', 'HARV','SERC', 'ORNL', 'DELA', 'LENO'))
 
 ```
 
 
 ```{r litter_mass_myc_type, echo=F, message=F, warning=F}
 
-myc_types_litter_mass=ggplot(plot_trees, aes(x=E, y=mean_annual_litterfall, color=Site, linetype=Site))+
+myc_types_litter_mass=ggplot(plot_trees, aes(x=E*100, y=mean_annual_litterfall, color=Site, linetype=Site))+
   geom_smooth(method="lm", se=F)+
   scale_linetype_manual(values=c("TREE"= "solid", "BART"="solid", "HARV"="dashed", "SERC"="dashed", "ORNL"="dashed", "DELA"="dashed", "LENO"="dashed"))+
   scale_color_viridis_d(option="C")+
